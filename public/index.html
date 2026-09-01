@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Vampir Köyü</title>
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <div id="toast" class="toast" hidden></div>
+
+  <div id="countdownOverlay" class="countdown-overlay" hidden>
+    <div id="countdownNumber" class="countdown-number">3</div>
+    <div class="countdown-caption">Roller dağıtılıyor...</div>
+  </div>
+
+  <div id="deathOverlay" class="death-overlay" hidden>
+    <div class="death-icon">💀</div>
+    <div id="deathCaption" class="death-caption"></div>
+  </div>
+
+  <header class="topbar">
+    <div class="brand">🧛 Vampir Köyü</div>
+    <div id="roomBadge" class="room-badge" hidden>
+      Oda: <span id="roomCodeLabel"></span>
+      <button id="copyLinkBtn" title="Davet linkini kopyala">Linki Kopyala</button>
+    </div>
+  </header>
+
+  <main id="app">
+
+    <!-- ---------- GİRİŞ EKRANI ---------- -->
+    <section id="screen-join" class="screen active">
+      <div class="card">
+        <h1>Vampir Köyü'ne Hoş Geldin</h1>
+        <p class="muted">Gece-gündüz döngülü, sosyal çıkarım oyunu. Arkadaşlarınla aynı odaya katıl ve vampirleri bul!</p>
+
+        <label>Takma İsim</label>
+        <input id="nicknameInput" type="text" maxlength="20" placeholder="örn. Ayşe" />
+
+        <div class="tabs">
+          <button class="tab-btn active" data-tab="create">Oda Kur</button>
+          <button class="tab-btn" data-tab="join">Odaya Katıl</button>
+        </div>
+
+        <div id="tab-create" class="tab-panel active">
+          <p class="muted">Yeni bir oda kur, host sen olursun ve arkadaşların katıldıkça oyunu sen başlatırsın.</p>
+          <button id="createRoomBtn" class="primary">Oda Kur</button>
+        </div>
+
+        <div id="tab-join" class="tab-panel">
+          <label>Oda Kodu</label>
+          <input id="roomCodeInput" type="text" maxlength="6" placeholder="örn. AB3K9" style="text-transform:uppercase" />
+          <button id="joinRoomBtn" class="primary">Katıl</button>
+        </div>
+
+        <p id="joinError" class="error" hidden></p>
+      </div>
+    </section>
+
+    <!-- ---------- LOBİ EKRANI ---------- -->
+    <section id="screen-lobby" class="screen">
+      <div class="card">
+        <h2>Lobi</h2>
+        <p class="muted">Herkes katılsın, sonra host oyunu başlatsın. En az 4 oyuncu gerekiyor.</p>
+        <ul id="lobbyPlayerList" class="player-list"></ul>
+        <button id="startGameBtn" class="primary" hidden>Oyunu Başlat</button>
+        <p id="lobbyHint" class="muted"></p>
+      </div>
+      <div class="card chat-card">
+        <h3>Sohbet</h3>
+        <div id="lobbyChatLog" class="chat-log"></div>
+        <form id="lobbyChatForm" class="chat-form">
+          <input id="lobbyChatInput" type="text" maxlength="500" placeholder="Mesaj yaz..." autocomplete="off" />
+          <button type="submit">Gönder</button>
+        </form>
+      </div>
+    </section>
+
+    <!-- ---------- OYUN EKRANI ---------- -->
+    <section id="screen-game" class="screen">
+      <div class="game-grid">
+
+        <div class="card chat-card chat-card-large">
+          <h3>Sohbet <span id="chatChannelHint" class="muted"></span></h3>
+          <div id="gameChatLog" class="chat-log chat-log-large"></div>
+          <form id="gameChatForm" class="chat-form">
+            <input id="gameChatInput" type="text" maxlength="500" placeholder="Mesaj yaz..." autocomplete="off" />
+            <button type="submit">Gönder</button>
+          </form>
+        </div>
+
+        <div class="game-side-col">
+          <div class="card role-card">
+            <h3>Rolün</h3>
+            <div id="roleName" class="role-name">-</div>
+            <p id="roleDesc" class="muted"></p>
+            <div id="teammatesBox" hidden>
+              <strong>Vampir takım arkadaşların:</strong>
+              <div id="teammatesList"></div>
+            </div>
+            <div id="revealRoleBox" class="reveal-role-box" hidden>
+              <p class="muted">Öldün. İstersen rolünü diğer herkese açıklayabilirsin.</p>
+              <button id="revealRoleBtn">Rolümü Herkese Aç</button>
+            </div>
+          </div>
+
+          <div class="card phase-card">
+            <div class="phase-header">
+              <span id="phaseIcon" class="phase-icon" aria-hidden="true"></span>
+              <span id="phaseLabel" class="phase-label">-</span>
+              <span id="phaseTimer" class="phase-timer"></span>
+            </div>
+            <button id="forceEndBtn" class="danger" hidden>Oyunu Erken Bitir</button>
+            <p id="phaseAnnouncement" class="announcement"></p>
+
+            <div id="actionArea"></div>
+          </div>
+
+          <div class="card players-card">
+            <h3>Oyuncular</h3>
+            <ul id="gamePlayerList" class="player-list"></ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ---------- OYUN SONU EKRANI ---------- -->
+    <section id="screen-gameover" class="screen">
+      <div class="card">
+        <h2 id="gameOverTitle">Oyun Bitti</h2>
+        <p id="gameOverAnnouncement" class="announcement"></p>
+        <table id="roleRevealTable" class="reveal-table">
+          <thead><tr><th>Oyuncu</th><th>Rol</th><th>Durum</th></tr></thead>
+          <tbody></tbody>
+        </table>
+        <button id="playAgainBtn" class="primary" hidden>Tekrar Oyna (Lobiye Dön)</button>
+        <p id="waitHostHint" class="muted" hidden>Host'un yeni oyun başlatmasını bekliyorsun...</p>
+      </div>
+    </section>
+
+  </main>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/js/client.js"></script>
+</body>
+</html>
