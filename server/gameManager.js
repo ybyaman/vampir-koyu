@@ -199,6 +199,7 @@ function joinRoom(socket, code, clientToken, nickname) {
       role: null,
       alive: true,
       revealed: false,
+      lastWordsSaid: false,
       isHost,
       connected: true,
       socketId: socket.id,
@@ -261,6 +262,7 @@ function startGame(socket) {
     p.role = assignment.get(p.clientToken);
     p.alive = true;
     p.revealed = false;
+    p.lastWordsSaid = false;
     db.setPlayerRole(p.id, p.role);
   }
   // Her yeni oyunda herkese taze, birbirinden ayırt edilebilir sohbet
@@ -269,6 +271,7 @@ function startGame(socket) {
 
   room.gameId = db.createGame(room.roomId);
   room.round = 1;
+  room.doctorLastSelfProtect = false;
   db.setRoomStatus(room.roomId, 'playing');
 
   for (const p of players) sendRolePrivately(room, p);
@@ -314,7 +317,10 @@ function submitNightAction(socket, actionType, targetNickname) {
     });
   } else if (actionType === 'doctor_protect') {
     if (player.role !== 'doctor') throw new Error('WRONG_ROLE');
+    const isSelf = target.clientToken === player.clientToken;
+    if (isSelf && room.doctorLastSelfProtect) throw new Error('CANNOT_SELF_PROTECT_TWICE');
     room.night.doctorProtect = target.clientToken;
+    room.night.doctorSelf = isSelf;
     emitToPlayer(room, player.clientToken, 'night:doctorConfirm', { targetNickname: target.nickname });
   } else {
     throw new Error('UNKNOWN_ACTION');
@@ -329,8 +335,12 @@ function submitNightAction(socket, actionType, targetNickname) {
 function tallyVotes(voteMap, eligibleTokens) {
   // voteMap: clientToken(oy veren) -> clientToken(hedef) | 'skip'
   const counts = new Map();
+  let skipCount = 0;
   for (const target of voteMap.values()) {
-    if (target === 'skip') continue;
+    if (target === 'skip') {
+      skipCount += 1;
+      continue;
+    }
     counts.set(target, (counts.get(target) || 0) + 1);
   }
   let max = 0;
@@ -345,11 +355,19 @@ function tallyVotes(voteMap, eligibleTokens) {
     }
   }
   if (winners.length !== 1 || max === 0) return null; // eşitlik ya da hiç oy yok -> kimse elenmez
+  // Çekimser oylar "null" (hiç oy kullanılmamış) gibi ağırlıksız değildir:
+  // en çok oyu alan kişinin oyu, çekimser sayısına eşit ya da azsa kimse
+  // asılmaz/öldürülmez — yani çekimserlik çoğunlukta kalırsa "kimseye
+  // dokunma" anlamına gelir, sadece yok sayılmaz.
+  if (max <= skipCount) return null;
   return winners[0];
 }
 
 function resolveNight(room) {
   clearRoomTimer(room);
+  // Doktor bu gece kendini korudu mu? Art arda iki gece kendini korumasını
+  // engellemek için bir sonraki geceye taşınacak bilgi burada güncellenir.
+  room.doctorLastSelfProtect = !!(room.night && room.night.doctorSelf);
   const aliveTokens = new Set(alivePlayers(room).map((p) => p.clientToken));
   const victimToken = tallyVotes(room.night.vampireVotes, aliveTokens);
   let announcement;
@@ -544,6 +562,19 @@ function revealOwnRole(socket) {
   broadcastRoomState(room);
 }
 
+// Ölen bir oyuncu, oyunda bir kez (bu ölümü için) "son söz" mesajı
+// yayınlayabilir — herkesin ekranında ortada, belirgin şekilde gösterilir.
+function sendLastWords(socket, message) {
+  const { room, player } = playerBySocket(socket);
+  if (!room || !player) throw new Error('NOT_IN_ROOM');
+  if (player.alive) throw new Error('NOT_DEAD');
+  if (player.lastWordsSaid) throw new Error('ALREADY_SAID');
+  const text = String(message || '').trim().slice(0, 140);
+  if (!text) throw new Error('EMPTY_MESSAGE');
+  player.lastWordsSaid = true;
+  ioRef.to(room.code).emit('player:lastWordsAnnounced', { nickname: player.nickname, message: text });
+}
+
 // ---------- Sohbet ----------
 
 function sendChat(socket, message) {
@@ -592,5 +623,6 @@ module.exports = {
   playAgain,
   forceEndGame,
   revealOwnRole,
+  sendLastWords,
   rooms,
 };

@@ -28,6 +28,7 @@
     teammates: [],
     alive: true,
     revealed: false,
+    lastWordsSaid: false,
     votedNicknames: new Set(),
     nicknameColors: {},
   };
@@ -94,6 +95,9 @@
     GAME_NOT_OVER: 'Oyun henüz bitmedi.',
     NOT_IN_ROOM: 'Bir odada değilsin.',
     NOT_DEAD: 'Rolünü sadece öldükten sonra açıklayabilirsin.',
+    CANNOT_SELF_PROTECT_TWICE: 'Art arda iki gece kendini koruyamazsın — başka birini seç.',
+    ALREADY_SAID: 'Son sözünü zaten söyledin.',
+    EMPTY_MESSAGE: 'Boş mesaj gönderemezsin.',
   };
   function friendlyError(err) {
     return ERROR_MESSAGES[err] || err || 'Bilinmeyen hata';
@@ -195,11 +199,29 @@
     // Öldükten sonra rolünü isteğe bağlı olarak herkese açıklayabilme.
     const showRevealOption = !state.alive && !state.revealed && state.phase !== 'lobby' && state.phase !== 'game_over';
     $('revealRoleBox').hidden = !showRevealOption;
+    // Öldükten sonra (oyun bitene kadar) bir kez son söz söyleyebilme.
+    const showLastWordsOption = !state.alive && !state.lastWordsSaid && state.phase !== 'lobby' && state.phase !== 'game_over';
+    $('lastWordsBox').hidden = !showLastWordsOption;
   }
 
   $('revealRoleBtn').addEventListener('click', () => {
     socket.emit('player:revealRole', {}, (res) => {
       if (!res.ok) toast(friendlyError(res.error));
+    });
+  });
+
+  $('lastWordsForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const input = $('lastWordsInput');
+    const message = input.value.trim();
+    if (!message) return;
+    $('lastWordsBtn').disabled = true;
+    socket.emit('player:lastWords', { message }, (res) => {
+      $('lastWordsBtn').disabled = false;
+      if (!res.ok) return toast(friendlyError(res.error));
+      state.lastWordsSaid = true;
+      input.value = '';
+      renderRoleCard();
     });
   });
 
@@ -232,14 +254,18 @@
   };
 
   let timerInterval = null;
+  const TIMER_BLINK_THRESHOLD = 15; // saniye
   function startTimer() {
     clearInterval(timerInterval);
     timerInterval = setInterval(() => {
-      if (!state.phaseEndsAt) { $('phaseTimer').textContent = ''; return; }
+      const timerEl = $('phaseTimer');
+      if (!state.phaseEndsAt) { timerEl.textContent = ''; timerEl.classList.remove('timer-critical'); return; }
       const remaining = Math.max(0, Math.round((state.phaseEndsAt - Date.now()) / 1000));
       const m = String(Math.floor(remaining / 60)).padStart(2, '0');
       const s = String(remaining % 60).padStart(2, '0');
-      $('phaseTimer').textContent = `${m}:${s}`;
+      timerEl.textContent = `${m}:${s}`;
+      // Son 15 saniyede yanıp sönerek süre daralmasını görsel olarak vurgula.
+      timerEl.classList.toggle('timer-critical', remaining > 0 && remaining <= TIMER_BLINK_THRESHOLD);
     }, 500);
   }
 
@@ -252,7 +278,11 @@
 
   // Oyuncu seçip ardından "Eminim" butonuyla onaylayan genel bileşen.
   // options: [{ value, label }]. onConfirm sadece "Eminim"e basılınca çağrılır
-  // (tek tıkla yanlışlıkla oy/aksiyon gönderilmesin diye).
+  // (tek tıkla yanlışlıkla oy/aksiyon gönderilmesin diye). onConfirm'e ikinci
+  // parametre olarak bir onError callback'i geçilir — sunucu isteği reddederse
+  // (örn. "art arda kendini koruyamazsın") arayüz tekrar seçim yapılabilir
+  // hale gelsin diye çağrılmalıdır; aksi halde buton sonsuza kadar
+  // "gönderildi" görünümünde asılı kalır.
   function buildSelectConfirmGrid(promptLabel, options, onConfirm) {
     const wrap = document.createElement('div');
     const p = document.createElement('p');
@@ -286,7 +316,13 @@
       grid.querySelectorAll('button').forEach((b) => (b.disabled = true));
       confirmBtn.disabled = true;
       confirmBtn.textContent = 'Gönderildi — diğerleri bekleniyor...';
-      onConfirm(selected);
+      onConfirm(selected, () => {
+        // Sunucu isteği reddetti (örn. kural ihlali) — tekrar seçim
+        // yapabilsinler diye arayüzü eski haline döndür.
+        grid.querySelectorAll('button').forEach((b) => (b.disabled = false));
+        confirmBtn.disabled = selected === null;
+        confirmBtn.textContent = 'Eminim ✓';
+      });
     });
 
     wrap.appendChild(grid);
@@ -294,15 +330,21 @@
     return wrap;
   }
 
-  function sendNightAction(actionType, target) {
+  function sendNightAction(actionType, target, onError) {
     socket.emit('night:action', { actionType, target }, (res) => {
-      if (!res.ok) toast(friendlyError(res.error));
+      if (!res.ok) {
+        toast(friendlyError(res.error));
+        if (onError) onError();
+      }
     });
   }
 
-  function sendVote(target) {
+  function sendVote(target, onError) {
     socket.emit('day:vote', { target }, (res) => {
-      if (!res.ok) toast(friendlyError(res.error));
+      if (!res.ok) {
+        toast(friendlyError(res.error));
+        if (onError) onError();
+      }
     });
   }
 
@@ -321,12 +363,12 @@
         el.appendChild(buildSelectConfirmGrid(
           'Bu gece kimi öldürmek istiyorsunuz? Seç, takım arkadaşlarınla konuş, emin olunca onayla.',
           options,
-          (n) => sendNightAction('vampire_vote', n)
+          (n, onError) => sendNightAction('vampire_vote', n, onError)
         ));
         $('chatChannelHint').textContent = '(vampir kanalı)';
       } else if (state.myRole === 'doctor') {
         const options = aliveAll().map((p) => ({ value: p.nickname, label: p.nickname }));
-        el.appendChild(buildSelectConfirmGrid('Kimi korumak istiyorsun?', options, (n) => sendNightAction('doctor_protect', n)));
+        el.appendChild(buildSelectConfirmGrid('Kimi korumak istiyorsun?', options, (n, onError) => sendNightAction('doctor_protect', n, onError)));
       } else {
         el.innerHTML = '<p class="muted">Gece oluyor... Vampirler ve doktor gizlice hareket ediyor. Sabah ne olduğunu öğreneceksin.</p>';
       }
@@ -341,7 +383,7 @@
       }
       const options = aliveOthers().map((p) => ({ value: p.nickname, label: p.nickname }));
       options.push({ value: 'skip', label: 'Çekimser Kal' });
-      el.appendChild(buildSelectConfirmGrid('Kimin asılmasını istiyorsun? Seç ve emin olunca onayla.', options, (n) => sendVote(n)));
+      el.appendChild(buildSelectConfirmGrid('Kimin asılmasını istiyorsun? Seç ve emin olunca onayla.', options, (n, onError) => sendVote(n, onError)));
       const tally = document.createElement('div');
       tally.id = 'voteTally';
       tally.className = 'muted';
@@ -452,6 +494,19 @@
     showDeathEffect._t = setTimeout(() => { overlay.hidden = true; }, 2200);
   }
 
+  // ---------- Son söz efekti (ekranın ortasında) ----------
+  function showLastWordsEffect(nickname, message) {
+    const overlay = $('lastWordsOverlay');
+    $('lastWordsNick').textContent = `${nickname} son sözünü söyledi:`;
+    $('lastWordsText').textContent = `"${message}"`;
+    overlay.hidden = false;
+    overlay.classList.remove('play');
+    void overlay.offsetWidth; // animasyonu yeniden başlatmak için reflow tetikle
+    overlay.classList.add('play');
+    clearTimeout(showLastWordsEffect._t);
+    showLastWordsEffect._t = setTimeout(() => { overlay.hidden = true; }, 5000);
+  }
+
   // ---------- Sunucudan gelen oyun olayları ----------
   socket.on('room:state', (payload) => {
     const startingNewGame = previousPhase === 'lobby' && payload.phase === 'night';
@@ -502,6 +557,7 @@
     if (startingNewGame) {
       // Önceki oyundan kalan sohbet mesajları yeni oyunda görünmesin.
       $('gameChatLog').innerHTML = '';
+      state.lastWordsSaid = false;
       runCountdown(applyScreen);
     } else {
       applyScreen();
@@ -525,6 +581,10 @@
 
   socket.on('night:doctorConfirm', (payload) => {
     toast(`${payload.targetNickname} kişisini koruyorsun.`);
+  });
+
+  socket.on('player:lastWordsAnnounced', (payload) => {
+    showLastWordsEffect(payload.nickname, payload.message);
   });
 
   socket.on('night:vampireProgress', () => {

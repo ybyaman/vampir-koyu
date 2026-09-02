@@ -124,6 +124,15 @@ io.on('connection', (socket) => {
     }
   });
 
+  socket.on('player:lastWords', ({ message } = {}, cb) => {
+    try {
+      gm.sendLastWords(socket, message);
+      ok(cb, {});
+    } catch (err) {
+      fail(cb, err);
+    }
+  });
+
   socket.on('disconnect', () => {
     gm.handleDisconnect(socket);
   });

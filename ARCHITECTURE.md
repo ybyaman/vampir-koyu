@@ -74,19 +74,28 @@ LOBBY → (host başlatır) → GECE → GÜNDÜZ_TARTIŞMA → GÜNDÜZ_OYLAMA
 ```
 
 - **LOBBY**: Oyuncular takma isimle katılır, host (odayı açan kişi) oyunu
-  başlatır. Oyuncu sayısına göre roller otomatik dağıtılır
-  (yaklaşık her 4 oyuncudan 1'i vampir, her zaman 1 soytarı, 5+ oyuncuda 1 doktor).
+  başlatır. Oyuncu sayısına göre roller otomatik dağıtılır (yaklaşık her
+  4 oyuncudan 1'i vampir, 4. oyuncudan itibaren her zaman 1 doktor var;
+  soytarı SADECE 5+ oyuncuda eklenir — tam 4 oyuncuda soytarı yerine
+  doktor vardır, bkz. `roles.js` — `computeRoleCounts`).
 - **GECE** (25 sn): Vampirler ortak bir kurbanı seçer (özel vampir kanalı),
-  Doktor birini korur. Soytarının gece yapacağı bir şey yok. Herkes
-  aksiyonunu verince (ya da süre dolunca) gece çözülür.
+  Doktor birini korur (kendisi dahil — ama **art arda iki gece kendini
+  koruyamaz**, bkz. `room.doctorLastSelfProtect` / `gameManager.js`).
+  Soytarının gece yapacağı bir şey yok. Herkes aksiyonunu verince (ya da
+  süre dolunca) gece çözülür.
 - **GÜNDÜZ_TARTIŞMA** (60 sn): Gece kim öldüyse duyurulur, süreli genel
   sohbet açılır.
-- **GÜNDÜZ_OYLAMA**: Herkes asılacak kişiye oy verir, en çok oyu alan
-  (eşitlikte kimse) elenir, rolü açıklanır.
+- **GÜNDÜZ_OYLAMA** (45 sn): Herkes asılacak kişiye oy verir ya da çekimser
+  kalır, en çok oyu alan elenir ve rolü açıklanır. Çekimser oylar gerçek
+  bir ağırlık taşır: en çok oyu alan kişinin oyu, çekimser sayısına eşit
+  ya da azsa kimse asılmaz (bkz. `tallyVotes` — `max <= skipCount` kontrolü).
 - Soytarı asılırsa oyunu o an tek başına kazanır ve oyun biter. Aksi halde
   her turun sonunda kazanma koşulu kontrol edilir: tüm vampirler öldüyse
   köylüler kazanır; vampir sayısı diğer oyuncu sayısına eşit ya da
   fazlaysa vampirler kazanır.
+- Ölen bir oyuncu, ölümü için bir kez "son söz" mesajı yayınlayabilir
+  (`player:lastWords` → `player:lastWordsAnnounced`); istemci bunu ekranın
+  ortasında birkaç saniyeliğine büyük şekilde gösterir.
 
 ### 2.3 Veritabanı (`server/db.js`, SQLite)
 Kalıcı olması gereken, "o anki oyunun RAM durumu" olmayan her şey burada:

@@ -19,6 +19,14 @@
     <div id="deathCaption" class="death-caption"></div>
   </div>
 
+  <div id="lastWordsOverlay" class="last-words-overlay" hidden>
+    <div class="last-words-box">
+      <div class="last-words-icon" aria-hidden="true">💬</div>
+      <div id="lastWordsNick" class="last-words-nick"></div>
+      <div id="lastWordsText" class="last-words-text"></div>
+    </div>
+  </div>
+
   <header class="topbar">
     <div class="brand">🧛 Vampir Köyü</div>
     <div id="roomBadge" class="room-badge" hidden>
@@ -102,6 +110,13 @@
             <div id="revealRoleBox" class="reveal-role-box" hidden>
               <p class="muted">Öldün. İstersen rolünü diğer herkese açıklayabilirsin.</p>
               <button id="revealRoleBtn">Rolümü Herkese Aç</button>
+            </div>
+            <div id="lastWordsBox" class="reveal-role-box" hidden>
+              <p class="muted">Son sözünü söylemek ister misin? Herkesin ekranının ortasında gösterilecek.</p>
+              <form id="lastWordsForm" class="chat-form">
+                <input id="lastWordsInput" type="text" maxlength="140" placeholder="Son sözün..." autocomplete="off" />
+                <button id="lastWordsBtn" type="submit">Son Sözümü Söyle</button>
+              </form>
             </div>
           </div>
 

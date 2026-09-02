@@ -150,7 +150,12 @@ main { max-width: 1100px; margin: 0 auto; padding: 24px; }
   flex-direction: column;
   gap: 6px;
 }
-.chat-log.chat-log-large { height: 100%; min-height: 480px; flex: 1; }
+/* Sabit bir yükseklik + overflow-y:auto (üstteki .chat-log kuralından
+   geliyor) ile sohbet kutusu HER ZAMAN kendi içinde kaydırılsın. Önceden
+   height:100%/flex:1 kullanılıyordu ama üst öğe (.chat-card-large) grid
+   içinde belirli bir yüksekliğe sahip olmadığından bu hiç işe yaramıyor,
+   kutu mesaj sayısı arttıkça sınırsız büyüyüp TÜM SAYFAYI aşağı itiyordu. */
+.chat-log.chat-log-large { height: 60vh; max-height: 620px; min-height: 320px; flex: none; }
 .chat-log .msg {
   padding: 6px 10px;
   border-radius: 8px;
@@ -193,7 +198,7 @@ main { max-width: 1100px; margin: 0 auto; padding: 24px; }
 @media (max-width: 900px) {
   .game-grid { grid-template-columns: 1fr; }
   .game-grid .chat-card-large { min-height: 320px; }
-  .chat-log.chat-log-large { min-height: 260px; }
+  .chat-log.chat-log-large { height: 50vh; max-height: 420px; min-height: 260px; }
 }
 
 .role-name { font-size: 1.6rem; font-weight: 700; color: #ffd166; margin: 6px 0; }
@@ -202,6 +207,16 @@ main { max-width: 1100px; margin: 0 auto; padding: 24px; }
 .phase-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
 .phase-label { font-size: 1.2rem; font-weight: 700; }
 .phase-timer { font-variant-numeric: tabular-nums; color: var(--muted); }
+/* Son 15 saniyede süre daralmasını vurgulamak için yanıp sönme efekti. */
+.phase-timer.timer-critical {
+  color: #ff6b6b;
+  font-weight: 800;
+  animation: timer-blink 1s step-start infinite;
+}
+@keyframes timer-blink {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0.25; }
+}
 .announcement { background: var(--panel-2); padding: 10px; border-radius: 8px; }
 
 .target-grid { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
@@ -289,6 +304,40 @@ main { max-width: 1100px; margin: 0 auto; padding: 24px; }
   35% { transform: scale(1) rotate(0deg); opacity: 1; }
   85% { opacity: 1; }
   100% { opacity: 0; }
+}
+
+/* ---------- Ölen oyuncunun "son söz"ü — ekranın ortasında ---------- */
+.last-words-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 960;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  pointer-events: none;
+  padding: 24px;
+}
+.last-words-box {
+  max-width: 480px;
+  text-align: center;
+  background: rgba(20, 16, 28, 0.92);
+  border: 1px solid var(--accent);
+  border-radius: 16px;
+  padding: 28px 32px;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.55);
+  opacity: 0;
+  transform: scale(0.85);
+}
+.last-words-overlay.play .last-words-box { animation: last-words-pop 5s ease forwards; }
+.last-words-icon { font-size: 2.2rem; margin-bottom: 8px; }
+.last-words-nick { font-weight: 800; color: #ffd166; font-size: 1.1rem; margin-bottom: 6px; }
+.last-words-text { color: var(--text); font-size: 1.3rem; font-style: italic; line-height: 1.4; }
+@keyframes last-words-pop {
+  0% { opacity: 0; transform: scale(0.85); }
+  10% { opacity: 1; transform: scale(1); }
+  85% { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(0.95); }
 }
 
 /* ---------- Ölen oyuncunun rolünü açıklama kutusu ---------- */
