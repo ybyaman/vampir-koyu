@@ -350,6 +350,38 @@ main { max-width: 1100px; margin: 0 auto; padding: 24px; }
 }
 .reveal-role-box button { margin-top: 6px; }
 
+/* ---------- Sesli sohbet paneli (sağ alt köşede sabit) ---------- */
+.voice-panel {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 900;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 12px 14px;
+  width: 220px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.4);
+}
+.voice-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 0.9rem; }
+#voiceStatusIcon { font-size: 1.1rem; }
+.voice-panel button { width: 100%; margin-top: 6px; }
+#voiceChannelLabel { margin-bottom: 4px; }
+.voice-ptt-btn {
+  background: var(--panel-2);
+  font-weight: 700;
+  user-select: none;
+  touch-action: manipulation;
+}
+.voice-ptt-btn.talking {
+  background: var(--good);
+  color: #06210f;
+}
+.voice-ptt-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+@media (max-width: 640px) {
+  .voice-panel { right: 10px; bottom: 10px; width: 180px; padding: 10px; }
+}
+
 /* ---------- Hedef seç + onayla akışı ---------- */
 .confirm-btn { margin-top: 10px; }
 .confirm-btn[disabled] { opacity: 0.4; }

@@ -24,6 +24,7 @@ internete açtığın anda arkadaşların tarayıcıdan bağlanıp oynayabilir.
   - [3. İnternete açma](#3-arkadaşlarının-bağlanabilmesi-için-internete-açma-cloudflare-tunnel)
   - [4. Oyuna başlama](#4-oyuna-başlama)
 - [Nasıl oynanır?](#nasıl-oynanır-kısa-kurallar)
+- [Sesli sohbet](#sesli-sohbet)
 - [Proje yapısı](#proje-yapısı)
 - [Güvenlik ve gizlilik notları](#güvenlik-ve-gizlilik-notları)
 - [Sorun giderme](#sorun-giderme)
@@ -46,6 +47,10 @@ internete açtığın anda arkadaşların tarayıcıdan bağlanıp oynayabilir.
   dolmadan erken ilerler.
 - 💀 **Görsel efektler** — 3-2-1 rol dağıtım geri sayımı, ölüm efekti, kim
   oy verdi göstergesi.
+- 🎙️ **Faz-duyarlı sesli sohbet (bas-konuş)** — mikrofonunu açtığında,
+  yazılı sohbetteki aynı kanal mantığıyla (gece vampirlere özel, gündüz/lobi/
+  ölüler ortak) otomatik olarak doğru kişilerle eşleşirsin; tarayıcılar
+  arasında doğrudan (P2P) akar, ses hiçbir zaman sunucudan geçmez.
 - 🔌 **Kopan bağlantıdan otomatik dönüş** — sayfa yenilense ya da bağlantı
   kesilip gelse bile aynı oyuncu olarak kaldığın yerden devam edersin.
 - 🗄️ **Kalıcı geçmiş** — oda/oyuncu/oyun/sohbet kayıtları SQLite ile tek
@@ -287,6 +292,39 @@ aynı bağlantıyla geri dönebilir.)
 
 </details>
 
+## Sesli sohbet
+
+Ekranın sol üst köşesindeki **"Sesli Sohbeti Aç"** panelinden mikrofonunu
+açabilirsin (tarayıcı izin ister). Sesli sohbet **yazılı sohbetle aynı
+kanal mantığını** kullanır ve tamamen otomatik çalışır — hangi faz/durumda
+olduğuna göre kiminle sesli bağlanacağın kendiliğinden belirlenir, elle bir
+"kanala katıl" işlemi yapmana gerek yok:
+
+- **Gece:** Vampirsen sadece diğer vampirlerle, değilsen kimseyle sesli
+  bağlanmazsın (gece köylülerin ortak bir kanalı yok, tıpkı yazılı sohbette
+  olduğu gibi).
+- **Gündüz / lobi:** Hayattaki herkesle ortak bir kanaldasın.
+- **Ölünce:** Sadece diğer ölülerle bir kanalda kalırsın.
+
+**Bas-konuş (push-to-talk):** Mikrofon varsayılan olarak kapalıdır, sadece
+**"Basılı Tut"** butonuna basılı tuttuğun (ya da klavyede **Space** tuşuna
+basılı tuttuğun — bir yazı kutusuna yazarken bu devre dışı kalır) sürece
+karşı taraf seni duyar. Bu sayede arka plan sesi/gürültü istemeden herkese
+gitmez.
+
+**Teknik olarak** ses hiçbir zaman sunucudan geçmez: tarayıcılar arasında
+doğrudan WebRTC (P2P) bağlantısı kurulur, sunucu sadece "şu an kim hangi
+kanalda" bilgisini ve bağlantı kurulum mesajlarını (SDP/ICE sinyalleşmesi)
+mevcut Socket.io bağlantısı üzerinden aktarır — ekstra bir sunucu/servis
+kurmana gerek yoktur.
+
+> ⚠️ **Bilinen kısıt:** Sadece genel/ücretsiz bir STUN sunucusu kullanılır,
+> TURN sunucusu yoktur. Bu, çoğu ev/mobil ağında sorunsuz çalışır ama bazı
+> kısıtlı kurumsal/okul ağlarında (P2P bağlantıları engelleyen ağlar) sesli
+> sohbet bağlantısı kurulamayabilir. Böyle bir durumda **yazılı sohbet her
+> zaman yedek olarak çalışmaya devam eder** — sesli sohbet olmasa da oyunu
+> oynamaya devam edebilirsiniz.
+
 ## Proje yapısı
 
 ```
@@ -317,6 +355,10 @@ vampir-koyu/
   (`.gitignore` ile) dahil edilmez.
 - Sunucuyu (`npm start` ve `cloudflared`) kapattığında oyun erişilemez hale
   gelir; bir sonraki oyunda `npm start` + tünel adımlarını tekrarlaman yeterli.
+- Sesli sohbette ses verisi **sunucudan hiç geçmez** (doğrudan tarayıcılar
+  arası WebRTC/P2P) ve hiçbir yere kaydedilmez; sunucu sadece kimin hangi
+  kanalda olduğu bilgisini ve bağlantı kurulum sinyallerini aktarır.
+  Mikrofon, sen açık olarak "Sesli Sohbeti Aç"a basmadan asla kullanılmaz.
 
 ## Sorun giderme
 
@@ -351,6 +393,12 @@ vampir-koyu/
   internetinden veya telefon hotspot'undan tekrar dene; hâlâ olmuyorsa
   yukarıdaki **"Cloudflare Tunnel bağlanamıyorsa: ngrok'a geç"** bölümündeki
   adımlara geç.
+- **Sesli sohbet açılıyor ama karşı tarafı duyamıyorum** → Öncelikle
+  tarayıcının mikrofon iznini gerçekten verdiğinden emin ol. Sorun devam
+  ederse muhtemelen ikinizden biri (ya da ikiniz de) TURN sunucusu
+  gerektiren kısıtlı bir ağdasınız (bkz. [Sesli sohbet](#sesli-sohbet)
+  bölümündeki bilinen kısıt) — ev/mobil ağına geçmeyi dene. Bu arada yazılı
+  sohbet her zaman çalışmaya devam eder.
 
 </details>
 

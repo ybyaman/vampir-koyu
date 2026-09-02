@@ -133,6 +133,29 @@ io.on('connection', (socket) => {
     }
   });
 
+  // Sesli sohbet: WebRTC teklif/cevap/ICE mesajlarını sunucu SADECE aktarır
+  // (relay) — ses verisi asla sunucudan geçmez, tarayıcılar arasında
+  // doğrudan (P2P) akar.
+  socket.on('voice:signal', ({ to, data } = {}, cb) => {
+    try {
+      gm.relayVoiceSignal(socket, to, data);
+      ok(cb, {});
+    } catch (err) {
+      fail(cb, err);
+    }
+  });
+
+  // İstemci sesli sohbeti faz ortasında açarsa, bir sonraki geçişi
+  // beklemeden o anki kanal/peer bilgisini isteyebilsin diye.
+  socket.on('voice:requestChannel', (_payload, cb) => {
+    try {
+      gm.requestVoiceChannel(socket);
+      ok(cb, {});
+    } catch (err) {
+      fail(cb, err);
+    }
+  });
+
   socket.on('disconnect', () => {
     gm.handleDisconnect(socket);
   });
