@@ -205,20 +205,20 @@ başlatışta URL değişir, tıpkı Cloudflare quick tunnel gibi.
 
 ## Nasıl oynanır? (kısa kurallar)
 
-Roller (oyuncu sayısına göre otomatik dağıtılır, yaklaşık her 4 kişiden 1'i vampir):
+Roller (oyuncu sayısına göre otomatik dağıtılır, yaklaşık her 4 kişiden 1'i vampir; **tam 4 oyuncuda soytarı yoktur, yerine doktor vardır** — soytarı ancak 5+ oyuncuda oyuna girer):
 
 | Rol | Takım | Yetenek |
 |---|---|---|
 | 🧑‍🌾 **Köylü** | Köy | Özel yeteneği yok, gündüz tartışıp doğru tahmini yapmaya çalışır. |
 | 🧛 **Vampir** | Vampirler | Geceleri diğer vampirlerle birlikte bir kurban seçip öldürür. Kimliğini gündüz gizler. |
-| 🃏 **Soytarı** | Kimse (tarafsız) | Gece yapacağı bir şey yok. Tek amacı **gündüz oylamasıyla asılmak** — asılırsa oyunu tek başına kazanır ve oyun orada biter! |
-| 💉 **Doktor** | Köy | Her gece bir kişiyi (kendisi dahil) korur; o kişi o gece ölmez. |
+| 🃏 **Soytarı** *(5+ oyuncu)* | Kimse (tarafsız) | Gece yapacağı bir şey yok. Tek amacı **gündüz oylamasıyla asılmak** — asılırsa oyunu tek başına kazanır ve oyun orada biter! |
+| 💉 **Doktor** | Köy | Her gece bir kişiyi (kendisi dahil) korur; o kişi o gece ölmez. **Art arda iki gece kendini koruyamaz** — bir gece kendini korursa, ertesi gece başka birini seçmesi gerekir. |
 
 Tur akışı:
 
-1. **Gece** (25 sn) — Vampirler kurbanı seçer, Doktor korur.
+1. **Gece** (25 sn, son 15 saniye faz sayacında yanıp söner) — Vampirler kurbanı seçer, Doktor korur.
 2. **Gündüz — Tartışma** (60 sn) — Gece kim öldü (ya da kimse ölmedi mi) açıklanır, herkes serbestçe tartışır.
-3. **Gündüz — Oylama** (45 sn) — Herkes asılacak kişiye oy verir (ya da çekimser kalır). En çok oyu alan asılır ve rolü açıklanır.
+3. **Gündüz — Oylama** (45 sn) — Herkes asılacak kişiye oy verir ya da **çekimser kalır**. En çok oyu alan asılır ve rolü açıklanır — ama çekimser oylar "yok sayılmaz": en çok oyu alan kişinin oyu, çekimser kalanların sayısına eşit ya da azsa **kimse asılmaz** (çoğunluk çekimser kalırsa bu, "kimseye dokunmayın" anlamına gelir).
 4. Soytarı asılırsa **oyun hemen orada biter, soytarı kazanır**. Aksi halde: tüm vampirler ölürse **köylüler kazanır**; vampir sayısı diğer oyuncu sayısına eşit ya da fazla olursa **vampirler kazanır**.
 
 Ölen oyuncular "ölüler sohbeti"nden birbirleriyle konuşmaya devam edebilir
@@ -272,6 +272,12 @@ taze baştan dağıtılır.
 **Kim oy verdi?** Gündüz oylaması sırasında oy kullanan oyuncuların
 isminin yanında oyuncu listesinde anlık bir ✓ **"Oy verdi"** etiketi
 belirir — kimin henüz oy vermediğini bir bakışta görürsün.
+
+**Son söz:** Bir oyuncu öldüğünde (rol kartındaki "Rolümü Herkese Aç"
+seçeneğinin hemen altında) bir kez **"Son Sözümü Söyle"** ile kısa bir
+mesaj yazabilir; bu mesaj herkesin ekranının tam ortasında birkaç saniye
+boyunca büyük ve belirgin şekilde gösterilir. Her ölüm için sadece bir
+kez kullanılabilir.
 
 **Bağlantısı kopan oyuncular:** Lobide (oyun başlamadan önce) bağlantısı
 kopan biri artık listeden tamamen kaldırılır ve oyuncu sayacı otomatik

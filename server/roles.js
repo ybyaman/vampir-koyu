@@ -40,15 +40,18 @@ function shuffle(arr) {
 }
 
 // Oyuncu sayısına göre rol sayıları belirler. Yaklaşık her 4 oyuncudan
-// biri vampir olur; 4+ oyuncuda 1 soytarı, 5+ oyuncuda 1 doktor eklenir.
+// biri vampir olur; 4. oyuncudan itibaren her zaman 1 doktor var. Soytarı
+// 5+ oyuncuda eklenir — tam 4 oyuncuda soytarı YOK, yerini doktor alır
+// (4 kişilik bir oyunda soytarının tek başına kazanma ihtimali oyunu çok
+// dengesizleştiriyordu).
 // Vampir takımı hiçbir zaman diğer takıma eşit ya da fazla başlamaz.
 function computeRoleCounts(playerCount) {
   if (playerCount < MIN_PLAYERS) {
     throw new Error(`En az ${MIN_PLAYERS} oyuncu gerekli.`);
   }
   let vampireCount = Math.max(1, Math.floor(playerCount / 4));
-  const jesterCount = 1;
-  const doctorCount = playerCount >= 5 ? 1 : 0;
+  const jesterCount = playerCount === 4 ? 0 : 1;
+  const doctorCount = 1;
 
   // Vampir takımının köy takımından az kalmasını garanti et.
   while (vampireCount >= playerCount - vampireCount && vampireCount > 1) {
