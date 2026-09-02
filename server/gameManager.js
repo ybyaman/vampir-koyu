@@ -126,6 +126,19 @@ function emitToTeam(room, roleKey, event, payload) {
   }
 }
 
+// Bir oyuncunun O AN hangi sohbet/sesli kanalda olduğunu belirler — hem
+// yazılı sohbet (sendChat) hem sesli sohbet (voice) mesh üyeliği AYNI bu
+// fonksiyona göre karar verir, ikisi birbirinden sapmasın diye.
+// null dönerse o oyuncunun şu an konuşabileceği/duyabileceği bir kanal yok
+// (örn. gece, vampir/ölü olmayan biri için).
+function resolveChatChannel(room, player) {
+  if (room.phase === 'lobby') return 'lobby';
+  if (!player.alive) return 'dead';
+  if (player.role === 'vampire' && room.phase === 'night') return 'vampire';
+  if (room.phase === 'day_discussion' || room.phase === 'day_vote') return 'day';
+  return null;
+}
+
 function sendRolePrivately(room, player) {
   if (!player.socketId || !player.role) return;
   ioRef.to(player.socketId).emit('role:assigned', {
@@ -220,6 +233,7 @@ function joinRoom(socket, code, clientToken, nickname) {
   }
 
   broadcastRoomState(room);
+  syncVoiceChannels(room);
   return { room, player };
 }
 
@@ -244,6 +258,7 @@ function handleDisconnect(socket) {
     player.socketId = null;
   }
   broadcastRoomState(room);
+  syncVoiceChannels(room);
 }
 
 // ---------- Oyun akışı ----------
@@ -285,6 +300,7 @@ function startNightPhase(room) {
   room.night = { vampireVotes: new Map(), doctorProtect: null };
   room.phaseEndsAt = Date.now() + NIGHT_MS;
   broadcastRoomState(room);
+  syncVoiceChannels(room);
   room.timer = setTimeout(() => resolveNight(room), NIGHT_MS);
 }
 
@@ -404,6 +420,7 @@ function startDayDiscussion(room, announcement, died) {
   room.phaseEndsAt = Date.now() + DAY_DISCUSSION_MS;
   ioRef.to(room.code).emit('day:announcement', { announcement, round: room.round, died: died || null });
   broadcastRoomState(room);
+  syncVoiceChannels(room);
   room.timer = setTimeout(() => startDayVote(room), DAY_DISCUSSION_MS);
 }
 
@@ -413,6 +430,7 @@ function startDayVote(room) {
   room.dayVotes = new Map();
   room.phaseEndsAt = Date.now() + DAY_VOTE_MS;
   broadcastRoomState(room);
+  syncVoiceChannels(room); // pratikte kanal day_discussion ile aynı ('day'), no-op olur ama tutarlılık için çağrılır
   room.timer = setTimeout(() => resolveDayVote(room), DAY_VOTE_MS);
 }
 
@@ -515,6 +533,7 @@ function endGame(room, winner, lastAnnouncement, winnerLabelOverride) {
     roles,
   });
   broadcastRoomState(room);
+  syncVoiceChannels(room); // oyun bitti -> resolveChatChannel herkes için null döner, sesli sohbet kapanır
 }
 
 // Host, devam eden bir oyunu (gece/gündüz fark etmez) istediği an iptal edip
@@ -549,6 +568,7 @@ function playAgain(socket) {
   room.dayVotes = new Map();
   room.phaseEndsAt = null;
   broadcastRoomState(room);
+  syncVoiceChannels(room);
 }
 
 // Ölen bir oyuncu isterse rolünü diğer herkese açıklayabilir. Otomatik
@@ -575,6 +595,98 @@ function sendLastWords(socket, message) {
   ioRef.to(room.code).emit('player:lastWordsAnnounced', { nickname: player.nickname, message: text });
 }
 
+// ---------- Sesli sohbet (WebRTC sinyalleşmesi) ----------
+// Sunucu ses akışını GÖRMEZ — sadece "şu an kim hangi kanalda" bilgisini
+// (yazılı sohbetle aynı resolveChatChannel mantığıyla) takip eder ve
+// istemciler arası WebRTC teklif/cevap/ICE mesajlarını birebir aynı kanalda
+// olan oyuncular arasında aktarır (relay). Her oyuncunun kendi kanalı SADECE
+// kendisine özel olarak gönderilir — herkese açık room:state'e asla
+// eklenmez, yoksa "kim şu an vampir kanalında" bilgisi rolü ifşa ederdi.
+function syncVoiceChannels(room) {
+  if (!room.voiceChannelOf) room.voiceChannelOf = new Map();
+  const prev = room.voiceChannelOf;
+  const next = new Map();
+  for (const p of room.players.values()) {
+    next.set(p.clientToken, p.connected ? resolveChatChannel(room, p) : null);
+  }
+  // room.players'tan TAMAMEN silinen oyuncular (örn. lobide bağlantısı kopan)
+  // next'te hiç görünmez — bunları da "kanaldan ayrıldı" olarak işleyebilmek
+  // için prev+next birleşimindeki tüm token'lara bakıyoruz.
+  const allTokens = new Set([...prev.keys(), ...next.keys()]);
+  const changedTokens = [...allTokens].filter((t) => (prev.get(t) || null) !== (next.get(t) || null));
+  if (changedTokens.length === 0) return;
+
+  // 1) Ayrılanları, eski kanalda hâlâ kalanlara bildir.
+  for (const token of changedTokens) {
+    const oldCh = prev.get(token) || null;
+    if (!oldCh) continue;
+    for (const other of room.players.values()) {
+      if (other.clientToken === token) continue;
+      if (next.get(other.clientToken) === oldCh) {
+        emitToPlayer(room, other.clientToken, 'voice:peerLeft', { clientToken: token });
+      }
+    }
+  }
+
+  // 2) Katılanlara yeni kanaldaki güncel oyuncu listesini, o kanalda zaten
+  //    olan herkese de "yeni biri katıldı" bilgisini gönder.
+  for (const token of changedTokens) {
+    const newCh = next.get(token) || null;
+    if (!newCh) {
+      if (room.players.has(token)) emitToPlayer(room, token, 'voice:channel', { channel: null, peers: [] });
+      continue;
+    }
+    const peers = [];
+    const joiningPlayer = room.players.get(token);
+    for (const other of room.players.values()) {
+      if (other.clientToken === token) continue;
+      if (next.get(other.clientToken) !== newCh) continue;
+      peers.push({ clientToken: other.clientToken, nickname: other.nickname });
+      const otherWasAlreadyThere = prev.get(other.clientToken) === newCh;
+      if (otherWasAlreadyThere && joiningPlayer) {
+        emitToPlayer(room, other.clientToken, 'voice:peerJoined', { clientToken: token, nickname: joiningPlayer.nickname });
+      }
+    }
+    if (joiningPlayer) emitToPlayer(room, token, 'voice:channel', { channel: newCh, peers });
+  }
+
+  room.voiceChannelOf = next;
+}
+
+// İstemci sesli sohbeti SONRADAN açtığında (oyun zaten bir fazın
+// ortasındayken), bir sonraki faz geçişini beklemeden "şu an neredeyim"
+// bilgisini anında alabilsin diye. room.voiceChannelOf'u DEĞİŞTİRMEZ —
+// sadece o anki durumun bir anlık görüntüsünü tekrar gönderir, diğer
+// oyuncuların artımlı (peerJoined/peerLeft) senkronunu bozmaz.
+function requestVoiceChannel(socket) {
+  const { room, player } = playerBySocket(socket);
+  if (!room || !player) throw new Error('NOT_IN_ROOM');
+  const channel = player.connected ? resolveChatChannel(room, player) : null;
+  const peers = [];
+  if (channel) {
+    for (const other of room.players.values()) {
+      if (other.clientToken === player.clientToken) continue;
+      const otherCh = other.connected ? resolveChatChannel(room, other) : null;
+      if (otherCh === channel) peers.push({ clientToken: other.clientToken, nickname: other.nickname });
+    }
+  }
+  emitToPlayer(room, player.clientToken, 'voice:channel', { channel, peers });
+}
+
+// WebRTC teklif/cevap/ICE mesajlarını, SADECE gönderen ve hedef şu an aynı
+// kanaldaysa aktarır — başka kanaldaki (örn. vampir olmayan) birine sızıntı
+// ya da sahte sinyal enjekte edilmesini engeller.
+function relayVoiceSignal(socket, targetClientToken, data) {
+  const { room, player } = playerBySocket(socket);
+  if (!room || !player) throw new Error('NOT_IN_ROOM');
+  const target = room.players.get(targetClientToken);
+  if (!target) throw new Error('INVALID_TARGET');
+  const myChannel = player.connected ? resolveChatChannel(room, player) : null;
+  const targetChannel = target.connected ? resolveChatChannel(room, target) : null;
+  if (!myChannel || myChannel !== targetChannel) throw new Error('NOT_IN_SAME_CHANNEL');
+  emitToPlayer(room, targetClientToken, 'voice:signal', { from: player.clientToken, fromNickname: player.nickname, data });
+}
+
 // ---------- Sohbet ----------
 
 function sendChat(socket, message) {
@@ -583,18 +695,8 @@ function sendChat(socket, message) {
   const text = String(message || '').trim().slice(0, 500);
   if (!text) return;
 
-  let channel;
-  if (room.phase === 'lobby') {
-    channel = 'lobby';
-  } else if (!player.alive) {
-    channel = 'dead';
-  } else if (player.role === 'vampire' && room.phase === 'night') {
-    channel = 'vampire';
-  } else if (room.phase === 'day_discussion' || room.phase === 'day_vote') {
-    channel = 'day';
-  } else {
-    throw new Error('CANNOT_CHAT_NOW');
-  }
+  const channel = resolveChatChannel(room, player);
+  if (!channel) throw new Error('CANNOT_CHAT_NOW');
 
   const row = db.addChatMessage(room.roomId, player.nickname, channel, text);
   const payload = { id: row.id, nickname: player.nickname, channel, message: text, createdAt: row.created_at };
@@ -624,5 +726,7 @@ module.exports = {
   forceEndGame,
   revealOwnRole,
   sendLastWords,
+  relayVoiceSignal,
+  requestVoiceChannel,
   rooms,
 };

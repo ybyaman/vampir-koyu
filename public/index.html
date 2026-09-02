@@ -27,6 +27,24 @@
     </div>
   </div>
 
+  <!-- Sesli sohbet: hangi ekranda olursa olsun sabit bir köşe paneli.
+       Ses hiçbir zaman sunucudan geçmez (WebRTC P2P); sunucu sadece
+       "şu an kim hangi kanalda" bilgisini ve bağlantı kurulum
+       mesajlarını (sinyal) aktarır. -->
+  <div id="voicePanel" class="voice-panel" hidden>
+    <div class="voice-header">
+      <span id="voiceStatusIcon" aria-hidden="true">🎤</span>
+      <span id="voiceStatusText">Sesli sohbet kapalı</span>
+    </div>
+    <button id="voiceToggleBtn" class="primary">Sesli Sohbeti Aç</button>
+    <div id="voiceActiveControls" hidden>
+      <div id="voiceChannelLabel" class="muted"></div>
+      <button id="voicePttBtn" class="voice-ptt-btn" disabled>🎙️ Basılı Tut (ya da Space)</button>
+      <button id="voiceDisableBtn" class="danger">Sesli Sohbeti Kapat</button>
+    </div>
+  </div>
+  <div id="voiceAudioContainer" hidden></div>
+
   <header class="topbar">
     <div class="brand">🧛 Vampir Köyü</div>
     <div id="roomBadge" class="room-badge" hidden>

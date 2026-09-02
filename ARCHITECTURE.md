@@ -136,6 +136,59 @@ port yönlendirme gerekmez. Arkadaşların sadece bu linke tıklar.
 
 Detaylı adımlar `README.md` içinde.
 
+### 2.6 Sesli Sohbet (WebRTC, `voice:*` olayları)
+Ses verisi hiçbir zaman sunucudan geçmez — tarayıcılar arası doğrudan
+(P2P) `RTCPeerConnection` mesh bağlantısı kurulur (SFU yok, her istemci
+kendi kanalındaki diğer herkesle ayrı bir bağlantı açar). Sunucunun tek
+işi, zaten var olan Socket.io bağlantısı üzerinden iki şeyi aktarmak:
+
+1. **Kanal ataması** — kimin şu an hangi sesli kanalda olduğu.
+2. **Sinyalleşme** — bağlantı kurulumu için gereken SDP teklif/cevap ve
+   ICE aday mesajları (`voice:signal`).
+
+**Kanal mantığı yazılı sohbetle birebir aynı fonksiyonu paylaşır**
+(`resolveChatChannel(room, player)` — `gameManager.js`): gece vampirse
+`'vampire'`, ölüyse `'dead'`, gündüz/lobideyse `'day'`/`'lobby'`. Hem
+`sendChat` hem `syncVoiceChannels`/`relayVoiceSignal`/`requestVoiceChannel`
+aynı fonksiyonu çağırır — bu sayede sesli ve yazılı kanal ataması asla
+birbirinden sapamaz (iki ayrı mantık yazılıp senkronsuz kalma riski yok).
+
+**Gizlilik açısından kritik tasarım kararı:** bir oyuncunun hangi sesli
+kanalda olduğu bilgisi ASLA `room:state` gibi herkese açık bir yayınla
+gönderilmez — gece fazında bu bilgi vampirlerin kimliğini ele verirdi.
+Bunun yerine mevcut özel `emitToPlayer` mekanizması kullanılır:
+`syncVoiceChannels(room)` her faz geçişinde/ölüm/bağlantı kopmasında
+çalışır, önceki ve yeni kanal atamalarını karşılaştırıp SADECE ilgili
+oyunculara özel olarak `voice:channel` (kendi tam anlık kanal+peer listen)
+veya artımlı `voice:peerJoined`/`voice:peerLeft` olayları gönderir.
+
+**Faz ortasında mikrofonu açma:** Bir oyuncu sesli sohbeti bir faz
+geçişinin tam ortasında açarsa, bir sonraki geçişi beklemeden anlık kanal
+bilgisini `voice:requestChannel` ile isteyebilir (`requestVoiceChannel` —
+`syncVoiceChannels`'ın aksine bu, diğer oyuncuların artımlı senkron
+durumunu bozmadan sadece isteyen oyuncuya cevap verir).
+
+**Glare önleme:** İki taraf da aynı anda `onnegotiationneeded` tetikleyip
+birbirine teklif (offer) göndermesin diye, `clientToken`'ı alfabetik
+sırada küçük olan taraf teklifi başlatır (`ensureVoicePeer` —
+`public/js/client.js`) — tam "perfect negotiation" desenine gerek kalmadan,
+bu küçük ölçekte (kanal başına birkaç kişi) yeterli ve basit bir çözüm.
+
+**Bas-konuş (push-to-talk):** Mikrofon akışı (`getUserMedia`) her zaman
+açık tutulur, sadece ses parçası (`MediaStreamTrack.enabled`) basılı
+tutulduğunda `true` yapılır — akışı sürekli başlatıp durdurmak yerine bu
+yaklaşım hem daha hızlı tepki verir hem de yeniden müzakere (renegotiation)
+gerektirmez.
+
+**Bilinen kısıt — TURN yok:** Sadece ücretsiz genel bir STUN sunucusu
+kullanılır (`RTC_CONFIG` — `public/js/client.js`), TURN sunucusu (relay)
+yoktur. Simetrik NAT'lar arkasındaki ya da P2P trafiği engelleyen kısıtlı
+ağlarda (bazı kurumsal/okul ağları) doğrudan bağlantı kurulamayabilir.
+Kendi TURN sunucunu kurup eklemek istersen `RTC_CONFIG.iceServers`
+listesine eklemen yeterli olur. Bu durumda bile yazılı sohbet her zaman
+çalışmaya devam eder — sesli sohbet tamamen "en iyi çaba" (best-effort)
+ek bir katmandır, oyunun temel akışı ona bağımlı değildir.
+
 ## 3. Veri Akışı Örneği (bir gece turu)
 
 1. Sunucu `GECE` fazına geçer, tüm istemcilere `phase:night` olayı yayınlar.
@@ -160,3 +213,10 @@ Detaylı adımlar `README.md` içinde.
 - **Cloudflare Tunnel**: Router'ına dokunmadan, port yönlendirmeden, statik
   IP olmadan güvenli ve HTTPS'li şekilde dışarıya açılmanın en az sürtünmeli
   yolu; ngrok'a göre ücretsiz kullanımda süre/bağlantı kısıtı yoktur.
+- **WebRTC (mesh, sunucu üzerinden sinyal aktarımı)**: Ses için ayrı bir
+  medya sunucusu (SFU/TURN) kurmadan, mevcut Socket.io bağlantısını
+  sinyalleşme kanalı olarak yeniden kullanarak sesli sohbeti neredeyse
+  sıfır ek altyapıyla eklemenin en basit yolu. Bu küçük grup (parti)
+  ölçeğinde (kanal başına genelde birkaç kişi) mesh topolojisi SFU'dan
+  daha basit ve yeterlidir; bedeli TURN'süz kısıtlı ağlarda bağlantının
+  bazen kurulamaması, ki bu durumda yazılı sohbet yedek olarak kalır.

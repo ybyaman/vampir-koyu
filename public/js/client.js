@@ -507,6 +507,188 @@
     showLastWordsEffect._t = setTimeout(() => { overlay.hidden = true; }, 5000);
   }
 
+  // ---------- Sesli sohbet (WebRTC, faz-duyarlı, bas-konuş) ----------
+  // Ses hiçbir zaman sunucudan geçmez — tarayıcılar arasında doğrudan
+  // (P2P) akar. Sunucu sadece "şu an kim hangi kanalda" bilgisini ve
+  // bağlantı kurulum mesajlarını (SDP/ICE) aktarır. Sadece ücretsiz genel
+  // STUN sunucusu kullanılır (TURN yok) — bazı kısıtlı/kurumsal ağlarda
+  // ses bağlantısı kurulamayabilir; böyle durumda yazılı sohbet her zaman
+  // yedek olarak çalışmaya devam eder.
+  const RTC_CONFIG = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+  const voice = {
+    enabled: false,
+    localStream: null,
+    channel: null,
+    peers: new Map(), // clientToken -> RTCPeerConnection
+  };
+
+  function renderVoicePanel() {
+    const label = $('voiceChannelLabel');
+    const pttBtn = $('voicePttBtn');
+    if (!voice.enabled) return;
+    if (!voice.channel) {
+      label.textContent = 'Şu an sesli kanalın yok (izliyorsun).';
+      pttBtn.disabled = true;
+      setTalking(false);
+    } else {
+      label.textContent = `Kanal: ${CHANNEL_LABELS[voice.channel] || voice.channel} (${voice.peers.size} kişi)`;
+      pttBtn.disabled = false;
+    }
+  }
+
+  function setTalking(isTalking) {
+    if (!voice.localStream) return;
+    voice.localStream.getAudioTracks().forEach((t) => { t.enabled = isTalking; });
+    $('voicePttBtn').classList.toggle('talking', isTalking);
+  }
+
+  function ensureVoicePeer(remoteToken, remoteNickname) {
+    if (voice.peers.has(remoteToken)) return voice.peers.get(remoteToken);
+    const pc = new RTCPeerConnection(RTC_CONFIG);
+    voice.peers.set(remoteToken, pc);
+    if (voice.localStream) {
+      voice.localStream.getTracks().forEach((t) => pc.addTrack(t, voice.localStream));
+    }
+    pc.onicecandidate = (e) => {
+      if (e.candidate) {
+        socket.emit('voice:signal', { to: remoteToken, data: { type: 'candidate', candidate: e.candidate } });
+      }
+    };
+    pc.ontrack = (e) => {
+      let audioEl = document.getElementById('voiceAudio-' + remoteToken);
+      if (!audioEl) {
+        audioEl = document.createElement('audio');
+        audioEl.id = 'voiceAudio-' + remoteToken;
+        audioEl.autoplay = true;
+        $('voiceAudioContainer').appendChild(audioEl);
+      }
+      audioEl.srcObject = e.streams[0];
+    };
+    // İki taraf da aynı anda teklif göndermesin (glare) diye: clientToken'ı
+    // alfabetik olarak küçük olan taraf teklifi başlatır.
+    if (clientToken < remoteToken) {
+      pc.onnegotiationneeded = async () => {
+        try {
+          const offer = await pc.createOffer();
+          await pc.setLocalDescription(offer);
+          socket.emit('voice:signal', { to: remoteToken, data: { type: 'offer', sdp: pc.localDescription } });
+        } catch { /* bağlantı kurulamadı, sessizce yut — metin sohbeti yedek */ }
+      };
+    }
+    return pc;
+  }
+
+  function closeVoicePeer(remoteToken) {
+    const pc = voice.peers.get(remoteToken);
+    if (pc) { pc.close(); voice.peers.delete(remoteToken); }
+    const audioEl = document.getElementById('voiceAudio-' + remoteToken);
+    if (audioEl) audioEl.remove();
+  }
+
+  function closeAllVoicePeers() {
+    [...voice.peers.keys()].forEach(closeVoicePeer);
+  }
+
+  async function enableVoice() {
+    if (voice.enabled) return;
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      toast('Bu tarayıcı sesli sohbeti desteklemiyor.');
+      return;
+    }
+    try {
+      voice.localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch {
+      toast('Mikrofona erişilemedi (izin reddedildi ya da mikrofon bulunamadı).');
+      return;
+    }
+    // Bas-konuş: mikrofon varsayılan olarak kapalı, sadece tuşa/butona
+    // basılı tutulduğunda açık.
+    voice.localStream.getAudioTracks().forEach((t) => { t.enabled = false; });
+    voice.enabled = true;
+    $('voiceToggleBtn').hidden = true;
+    $('voiceActiveControls').hidden = false;
+    $('voiceStatusText').textContent = 'Sesli sohbet açık';
+    // Faz zaten ortasındaysa, bir sonraki geçişi beklemeden şu anki kanalı sor.
+    socket.emit('voice:requestChannel', {}, () => {});
+    renderVoicePanel();
+  }
+
+  function disableVoice() {
+    if (!voice.enabled) return;
+    closeAllVoicePeers();
+    if (voice.localStream) voice.localStream.getTracks().forEach((t) => t.stop());
+    voice.localStream = null;
+    voice.enabled = false;
+    voice.channel = null;
+    $('voiceToggleBtn').hidden = false;
+    $('voiceActiveControls').hidden = true;
+    $('voiceStatusText').textContent = 'Sesli sohbet kapalı';
+  }
+
+  socket.on('voice:channel', (payload) => {
+    if (!voice.enabled) return; // sesli sohbeti hiç açmadıysak ilgilenmiyoruz
+    closeAllVoicePeers();
+    voice.channel = payload.channel;
+    (payload.peers || []).forEach((p) => ensureVoicePeer(p.clientToken, p.nickname));
+    setTalking(false);
+    renderVoicePanel();
+  });
+
+  socket.on('voice:peerJoined', (payload) => {
+    if (!voice.enabled) return;
+    ensureVoicePeer(payload.clientToken, payload.nickname);
+    renderVoicePanel();
+  });
+
+  socket.on('voice:peerLeft', (payload) => {
+    if (!voice.enabled) return;
+    closeVoicePeer(payload.clientToken);
+    renderVoicePanel();
+  });
+
+  socket.on('voice:signal', async (payload) => {
+    if (!voice.enabled) return;
+    const pc = ensureVoicePeer(payload.from, payload.fromNickname);
+    const data = payload.data;
+    try {
+      if (data.type === 'offer') {
+        await pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
+        socket.emit('voice:signal', { to: payload.from, data: { type: 'answer', sdp: pc.localDescription } });
+      } else if (data.type === 'answer') {
+        await pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
+      } else if (data.type === 'candidate') {
+        try { await pc.addIceCandidate(data.candidate); } catch { /* yut */ }
+      }
+    } catch { /* tek bağlantı kurulamasa da oyun/metin sohbeti etkilenmesin */ }
+  });
+
+  $('voiceToggleBtn').addEventListener('click', enableVoice);
+  $('voiceDisableBtn').addEventListener('click', disableVoice);
+
+  const voicePttBtn = $('voicePttBtn');
+  ['mousedown', 'touchstart'].forEach((ev) => voicePttBtn.addEventListener(ev, (e) => {
+    e.preventDefault();
+    if (!voicePttBtn.disabled) setTalking(true);
+  }));
+  ['mouseup', 'mouseleave', 'touchend', 'touchcancel'].forEach((ev) => voicePttBtn.addEventListener(ev, () => setTalking(false)));
+
+  // Space tuşu ile de bas-konuş yapılabilsin — ama bir metin kutusuna
+  // yazarken boşluk tuşunu ELE GEÇİRMESİN.
+  document.addEventListener('keydown', (e) => {
+    if (e.code !== 'Space' || e.repeat) return;
+    const tag = (document.activeElement && document.activeElement.tagName) || '';
+    if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+    if (!voice.enabled || voicePttBtn.disabled) return;
+    e.preventDefault();
+    setTalking(true);
+  });
+  document.addEventListener('keyup', (e) => {
+    if (e.code !== 'Space') return;
+    setTalking(false);
+  });
+
   // ---------- Sunucudan gelen oyun olayları ----------
   socket.on('room:state', (payload) => {
     const startingNewGame = previousPhase === 'lobby' && payload.phase === 'night';
@@ -532,6 +714,7 @@
 
     $('roomBadge').hidden = false;
     $('roomCodeLabel').textContent = state.code;
+    $('voicePanel').hidden = false;
 
     const gameInProgress = ['night', 'day_discussion', 'day_vote'].includes(state.phase);
     $('forceEndBtn').hidden = !(state.isHost && gameInProgress);
