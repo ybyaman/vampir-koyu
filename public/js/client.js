@@ -2,22 +2,33 @@
 // sayfalık (framework'süz) istemci mantığı.
 
 (() => {
-  const socket = io();
-
-  // ---------- Kalıcı istemci kimliği ----------
-  // Hesap yok; sadece bu tarayıcıyı diğerlerinden ayırmak ve sayfa
-  // yenilenince / bağlantı kopunca aynı oyuncu olarak geri dönebilmek için.
-  let clientToken = localStorage.getItem('vk_token');
-  if (!clientToken) {
-    clientToken = (crypto.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2));
-    localStorage.setItem('vk_token', clientToken);
+  // ---------- Hesap (e-posta + şifre) oturumu ----------
+  // Artık serbest bir "takma isim" yok — kayıt olurken seçtiğin kullanıcı
+  // adı, tüm odalarda/oyunlarda görünen kalıcı ismin. Oturum token'ı bu
+  // tarayıcıda localStorage'da tutulur ve her Socket.io bağlantısında
+  // (handshake) sunucuya gösterilir; sunucu geçersiz/eksik token'ı reddeder.
+  function getToken() { return localStorage.getItem('vk_session_token') || ''; }
+  function getUsername() { return localStorage.getItem('vk_username') || ''; }
+  function setSession(token, username) {
+    localStorage.setItem('vk_session_token', token);
+    localStorage.setItem('vk_username', username);
   }
-  const savedNickname = localStorage.getItem('vk_nickname') || '';
+  function clearSession() {
+    localStorage.removeItem('vk_session_token');
+    localStorage.removeItem('vk_username');
+  }
+
+  const socket = io({
+    // Fonksiyon olarak veriyoruz ki her (yeniden) bağlantı denemesinde
+    // localStorage'daki GÜNCEL token okunsun (örn. az önce giriş yapıldıysa).
+    auth: (cb) => cb({ token: getToken() }),
+  });
+
   const savedRoom = localStorage.getItem('vk_room') || '';
 
   const state = {
     code: null,
-    nickname: savedNickname,
+    nickname: getUsername(),
     isHost: false,
     phase: 'join',
     round: 0,
@@ -34,6 +45,7 @@
   };
 
   let previousPhase = null;
+  let hasEnteredApp = false; // ilk başarılı (kimlik doğrulanmış) bağlantıda oda ekranına bir kez geçmek için
 
   // ---------- Yardımcılar ----------
   const $ = (id) => document.getElementById(id);
@@ -57,21 +69,18 @@
     return 'screen-game';
   }
 
-  // ---------- Giriş ekranı ----------
-  $('nicknameInput').value = savedNickname;
-
+  // Sekmeli alanlar (hesap ekranındaki Giriş/Kayıt VE oda ekranındaki
+  // Oda Kur/Odaya Katıl) birbirinden bağımsız çalışsın diye her tık sadece
+  // kendi ekranındaki (.screen) sekme+panel çiftini etkiler.
   document.querySelectorAll('.tab-btn').forEach((btn) => {
     btn.addEventListener('click', () => {
-      document.querySelectorAll('.tab-btn').forEach((b) => b.classList.remove('active'));
-      document.querySelectorAll('.tab-panel').forEach((p) => p.classList.remove('active'));
+      const scope = btn.closest('.screen') || document;
+      scope.querySelectorAll('.tab-btn').forEach((b) => b.classList.remove('active'));
+      scope.querySelectorAll('.tab-panel').forEach((p) => p.classList.remove('active'));
       btn.classList.add('active');
       $(`tab-${btn.dataset.tab}`).classList.add('active');
     });
   });
-
-  function currentNickname() {
-    return ($('nicknameInput').value || '').trim().slice(0, 20);
-  }
 
   function showJoinError(msg) {
     const el = $('joinError');
@@ -80,7 +89,6 @@
   }
 
   const ERROR_MESSAGES = {
-    MISSING_TOKEN: 'Bir şeyler ters gitti, sayfayı yenile.',
     MISSING_CODE: 'Oda kodu gerekli.',
     ROOM_NOT_FOUND: 'Bu kodda bir oda bulunamadı. Kodu kontrol et.',
     GAME_IN_PROGRESS: 'Bu odada oyun zaten başlamış, yeni oyuncu giremez.',
@@ -103,23 +111,93 @@
     return ERROR_MESSAGES[err] || err || 'Bilinmeyen hata';
   }
 
+  // ---------- Hesap ekranı: giriş / kayıt ----------
+  const AUTH_ERROR_MESSAGES = {
+    INVALID_EMAIL: 'Geçerli bir e-posta adresi gir.',
+    WEAK_PASSWORD: 'Şifre en az 6 karakter olmalı.',
+    INVALID_USERNAME: 'Kullanıcı adı 2-20 karakter olmalı (harf, rakam, _).',
+    EMAIL_TAKEN: 'Bu e-posta ile zaten bir hesap var — Giriş Yap sekmesini dener misin?',
+    USERNAME_TAKEN: 'Bu kullanıcı adı alınmış, başka bir tane dene.',
+    INVALID_CREDENTIALS: 'E-posta ya da şifre yanlış.',
+  };
+  function friendlyAuthError(err) {
+    return AUTH_ERROR_MESSAGES[err] || err || 'Bilinmeyen hata';
+  }
+  function showAuthError(msg) {
+    const el = $('authError');
+    el.textContent = msg;
+    el.hidden = false;
+  }
+
+  async function callAuthApi(path, body) {
+    try {
+      const res = await fetch(path, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      return await res.json();
+    } catch {
+      return { ok: false, error: 'SERVER_ERROR' };
+    }
+  }
+
+  function onAuthSuccess(token, user) {
+    setSession(token, user.username);
+    state.nickname = user.username;
+    $('authError').hidden = true;
+    socket.connect(); // token artık hazır — bağlantıyı (yeniden) dene
+  }
+
+  $('loginForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    $('authError').hidden = true;
+    const email = $('loginEmail').value.trim();
+    const password = $('loginPassword').value;
+    $('loginBtn').disabled = true;
+    const data = await callAuthApi('/api/auth/login', { email, password });
+    $('loginBtn').disabled = false;
+    if (!data.ok) return showAuthError(friendlyAuthError(data.error));
+    onAuthSuccess(data.token, data.user);
+  });
+
+  $('registerForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    $('authError').hidden = true;
+    const email = $('registerEmail').value.trim();
+    const username = $('registerUsername').value.trim();
+    const password = $('registerPassword').value;
+    $('registerBtn').disabled = true;
+    const data = await callAuthApi('/api/auth/register', { email, username, password });
+    $('registerBtn').disabled = false;
+    if (!data.ok) return showAuthError(friendlyAuthError(data.error));
+    onAuthSuccess(data.token, data.user);
+  });
+
+  $('logoutBtn').addEventListener('click', async () => {
+    const token = getToken();
+    clearSession();
+    localStorage.removeItem('vk_room');
+    try {
+      await fetch('/api/auth/logout', { method: 'POST', headers: { Authorization: `Bearer ${token}` } });
+    } catch { /* çıkışı yine de tamamla */ }
+    location.reload();
+  });
+
+  // ---------- Giriş (oda) ekranı ----------
   $('createRoomBtn').addEventListener('click', () => {
-    const nickname = currentNickname();
-    if (!nickname) return showJoinError('Lütfen bir takma isim gir.');
     $('joinError').hidden = true;
-    socket.emit('room:create', { nickname, clientToken }, (res) => {
+    socket.emit('room:create', {}, (res) => {
       if (!res.ok) return showJoinError(friendlyError(res.error));
       afterJoinSuccess(res);
     });
   });
 
   $('joinRoomBtn').addEventListener('click', () => {
-    const nickname = currentNickname();
     const code = ($('roomCodeInput').value || '').trim().toUpperCase();
-    if (!nickname) return showJoinError('Lütfen bir takma isim gir.');
     if (!code) return showJoinError('Lütfen oda kodunu gir.');
     $('joinError').hidden = true;
-    socket.emit('room:join', { code, nickname, clientToken }, (res) => {
+    socket.emit('room:join', { code }, (res) => {
       if (!res.ok) return showJoinError(friendlyError(res.error));
       afterJoinSuccess(res);
     });
@@ -129,7 +207,6 @@
     state.code = res.code;
     state.nickname = res.player.nickname;
     state.isHost = res.player.isHost;
-    localStorage.setItem('vk_nickname', state.nickname);
     localStorage.setItem('vk_room', state.code);
     $('roomBadge').hidden = false;
     $('roomCodeLabel').textContent = state.code;
@@ -153,13 +230,24 @@
     $('roomCodeInput').value = urlRoom.toUpperCase();
   }
 
-  // Sayfa açılışında daha önce bir odadaysak otomatik yeniden katıl.
-  if (savedRoom && savedNickname && !urlRoom) {
-    socket.emit('room:join', { code: savedRoom, nickname: savedNickname, clientToken }, (res) => {
-      if (res.ok) afterJoinSuccess(res);
-      else localStorage.removeItem('vk_room');
-    });
-  }
+  // İlk kimlik doğrulanmış bağlantı kurulduğunda hesap ekranından oda
+  // ekranına geç; daha önce bir odadaysak (ve bir davet linkiyle gelmediysek)
+  // otomatik olarak o odaya yeniden katıl.
+  socket.on('connect', () => {
+    $('accountUsername').textContent = getUsername();
+    $('accountBadge').hidden = false;
+    if (!hasEnteredApp) {
+      hasEnteredApp = true;
+      $('joinWelcomeName').textContent = getUsername();
+      showScreen('screen-join');
+      if (savedRoom && !urlRoom) {
+        socket.emit('room:join', { code: savedRoom }, (res) => {
+          if (res.ok) afterJoinSuccess(res);
+          else localStorage.removeItem('vk_room');
+        });
+      }
+    }
+  });
 
   // ---------- Lobi ----------
   function renderLobby() {
@@ -817,6 +905,18 @@
     });
   });
 
-  socket.on('connect_error', () => toast('Sunucuya bağlanılamadı, tekrar deneniyor...'));
+  socket.on('connect_error', (err) => {
+    if (err && err.message === 'UNAUTHORIZED') {
+      // Token yok ya da geçersiz/süresi dolmuş — hesap ekranına dön, sessizce
+      // (toast'la kullanıcıyı rahatsız etmeden) tekrar giriş istensin.
+      clearSession();
+      hasEnteredApp = false;
+      $('accountBadge').hidden = true;
+      $('roomBadge').hidden = true;
+      showScreen('screen-auth');
+      return;
+    }
+    toast('Sunucuya bağlanılamadı, tekrar deneniyor...');
+  });
   socket.on('disconnect', () => toast('Bağlantı koptu, tekrar bağlanılıyor...'));
 })();
