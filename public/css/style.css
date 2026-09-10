@@ -12,6 +12,20 @@
   font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
 }
 
+/* Gece <-> gündüz temasında değişen renkleri @property ile "renk" tipinde
+   kayıtlı hale getiriyoruz — bu sayede tarayıcı, sadece bu değişkenleri
+   kullanan gradient/arka plan/kenarlık gibi TÜM değerleri (aşağıdaki body
+   transition'ı sayesinde) otomatik olarak, her elemana ayrı ayrı transition
+   tanımlamaya gerek kalmadan, yumuşakça birbirine geçirir. (Kayıtsız bir CSS
+   değişkeni değiştiğinde tarayıcı onu asla animasyonlu geçiremez — burada
+   "anlık geçiş" şikayetinin asıl sebebi buydu.) */
+@property --bg { syntax: '<color>'; inherits: true; initial-value: #14101c; }
+@property --bg-glow { syntax: '<color>'; inherits: true; initial-value: #221933; }
+@property --panel { syntax: '<color>'; inherits: true; initial-value: #1f1930; }
+@property --panel-2 { syntax: '<color>'; inherits: true; initial-value: #2a2240; }
+@property --muted { syntax: '<color>'; inherits: true; initial-value: #a99fc9; }
+@property --border { syntax: '<color>'; inherits: true; initial-value: #3a3155; }
+
 /* Gündüz teması: aynı mor aile, sadece belirgin şekilde açık tonlar.
    Gece fazında body'de bu sınıf yok, varsayılan (koyu) :root paleti geçerli. */
 body.theme-day {
@@ -34,7 +48,12 @@ body {
   background: radial-gradient(circle at top, var(--bg-glow), var(--bg) 60%);
   color: var(--text);
   min-height: 100vh;
-  transition: background 1s ease;
+  /* Gece/gündüz geçişi burada, TEK bir yerde, yavaş (3sn) ve yumuşak
+     olsun diye tanımlı — yukarıdaki @property sayesinde bu değişkenleri
+     kullanan tüm kartlar/panel arka planları/kenarlıklar da otomatik
+     olarak aynı hızda birlikte geçiş yapar. */
+  transition: background 3s ease, --bg 3s ease, --bg-glow 3s ease,
+    --panel 3s ease, --panel-2 3s ease, --muted 3s ease, --border 3s ease;
 }
 
 .topbar {
@@ -43,11 +62,21 @@ body {
   justify-content: space-between;
   padding: 14px 24px;
   border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+  gap: 10px;
 }
 
 .brand { font-size: 1.3rem; font-weight: 700; }
 
-.room-badge {
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.room-badge,
+.account-badge {
   background: var(--panel-2);
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -58,6 +87,8 @@ body {
   gap: 10px;
 }
 .room-badge span { font-weight: 700; letter-spacing: 2px; color: #ffd166; }
+.account-badge span { font-weight: 600; color: var(--text); }
+.account-badge button { padding: 4px 10px; font-size: 0.8rem; }
 
 button {
   cursor: pointer;
@@ -85,7 +116,9 @@ button.danger {
 button.danger:hover { background: rgba(180,33,60,0.25); }
 button:disabled { opacity: 0.5; cursor: not-allowed; }
 
-input[type="text"] {
+input[type="text"],
+input[type="email"],
+input[type="password"] {
   width: 100%;
   padding: 10px 12px;
   border-radius: 8px;
@@ -262,7 +295,7 @@ main { max-width: 1100px; margin: 0 auto; padding: 24px; }
 .phase-icon { font-size: 1.6rem; margin-right: 4px; vertical-align: middle; }
 .phase-card.is-night,
 .phase-card.is-day {
-  transition: background 1s ease;
+  transition: background 3s ease;
 }
 .phase-card.is-night {
   background: linear-gradient(160deg, #201a38, #14101c 70%);

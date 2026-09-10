@@ -47,22 +47,62 @@
 
   <header class="topbar">
     <div class="brand">🧛 Vampir Köyü</div>
-    <div id="roomBadge" class="room-badge" hidden>
-      Oda: <span id="roomCodeLabel"></span>
-      <button id="copyLinkBtn" title="Davet linkini kopyala">Linki Kopyala</button>
+    <div class="topbar-right">
+      <div id="accountBadge" class="account-badge" hidden>
+        <span id="accountUsername"></span>
+        <button id="logoutBtn" title="Çıkış yap">Çıkış Yap</button>
+      </div>
+      <div id="roomBadge" class="room-badge" hidden>
+        Oda: <span id="roomCodeLabel"></span>
+        <button id="copyLinkBtn" title="Davet linkini kopyala">Linki Kopyala</button>
+      </div>
     </div>
   </header>
 
   <main id="app">
 
-    <!-- ---------- GİRİŞ EKRANI ---------- -->
-    <section id="screen-join" class="screen active">
+    <!-- ---------- HESAP EKRANI (e-posta + şifre ile giriş/kayıt) ---------- -->
+    <section id="screen-auth" class="screen active">
       <div class="card">
         <h1>Vampir Köyü'ne Hoş Geldin</h1>
-        <p class="muted">Gece-gündüz döngülü, sosyal çıkarım oyunu. Arkadaşlarınla aynı odaya katıl ve vampirleri bul!</p>
+        <p class="muted">Gece-gündüz döngülü, sosyal çıkarım oyunu. Devam etmek için giriş yap ya da yeni bir hesap oluştur.</p>
 
-        <label>Takma İsim</label>
-        <input id="nicknameInput" type="text" maxlength="20" placeholder="örn. Ayşe" />
+        <div class="tabs">
+          <button class="tab-btn active" data-tab="login">Giriş Yap</button>
+          <button class="tab-btn" data-tab="register">Kayıt Ol</button>
+        </div>
+
+        <div id="tab-login" class="tab-panel active">
+          <form id="loginForm">
+            <label>E-posta</label>
+            <input id="loginEmail" type="email" placeholder="ornek@eposta.com" autocomplete="username" />
+            <label>Şifre</label>
+            <input id="loginPassword" type="password" placeholder="Şifren" autocomplete="current-password" />
+            <button id="loginBtn" type="submit" class="primary">Giriş Yap</button>
+          </form>
+        </div>
+
+        <div id="tab-register" class="tab-panel">
+          <form id="registerForm">
+            <label>E-posta</label>
+            <input id="registerEmail" type="email" placeholder="ornek@eposta.com" autocomplete="username" />
+            <label>Kullanıcı Adı</label>
+            <input id="registerUsername" type="text" maxlength="20" placeholder="örn. Ayşe_34" autocomplete="nickname" />
+            <label>Şifre</label>
+            <input id="registerPassword" type="password" placeholder="En az 6 karakter" autocomplete="new-password" />
+            <button id="registerBtn" type="submit" class="primary">Kayıt Ol</button>
+          </form>
+        </div>
+
+        <p id="authError" class="error" hidden></p>
+      </div>
+    </section>
+
+    <!-- ---------- GİRİŞ EKRANI ---------- -->
+    <section id="screen-join" class="screen">
+      <div class="card">
+        <h1>Hoş geldin, <span id="joinWelcomeName"></span></h1>
+        <p class="muted">Arkadaşlarınla aynı odaya katıl ve vampirleri bul!</p>
 
         <div class="tabs">
           <button class="tab-btn active" data-tab="create">Oda Kur</button>

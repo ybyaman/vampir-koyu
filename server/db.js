@@ -67,9 +67,24 @@ CREATE TABLE IF NOT EXISTS chat_messages (
   created_at  TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+CREATE TABLE IF NOT EXISTS users (
+  id             INTEGER PRIMARY KEY AUTOINCREMENT,
+  email          TEXT UNIQUE NOT NULL COLLATE NOCASE,
+  username       TEXT UNIQUE NOT NULL COLLATE NOCASE,
+  password_hash  TEXT NOT NULL,
+  created_at     TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS sessions (
+  token       TEXT PRIMARY KEY,
+  user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 CREATE INDEX IF NOT EXISTS idx_players_room ON players(room_id);
 CREATE INDEX IF NOT EXISTS idx_logs_room_game ON game_logs(room_id, game_id);
 CREATE INDEX IF NOT EXISTS idx_chat_room_channel ON chat_messages(room_id, channel);
+CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);
 `);
 
 // ---------- Odalar ----------
@@ -173,6 +188,40 @@ function getChatHistory(roomId, channel, limit = 100) {
   `).all(roomId, channel, limit).reverse();
 }
 
+// ---------- Kullanıcı hesapları ----------
+
+function createUser(email, username, passwordHash) {
+  const info = db.prepare('INSERT INTO users (email, username, password_hash) VALUES (?, ?, ?)')
+    .run(email, username, passwordHash);
+  return getUserById(info.lastInsertRowid);
+}
+
+function getUserById(id) {
+  return db.prepare('SELECT * FROM users WHERE id = ?').get(id);
+}
+
+function getUserByEmail(email) {
+  return db.prepare('SELECT * FROM users WHERE email = ?').get(email);
+}
+
+function getUserByUsername(username) {
+  return db.prepare('SELECT * FROM users WHERE username = ?').get(username);
+}
+
+// ---------- Oturumlar (session) ----------
+
+function createSession(token, userId) {
+  db.prepare('INSERT INTO sessions (token, user_id) VALUES (?, ?)').run(token, userId);
+}
+
+function getSession(token) {
+  return db.prepare('SELECT * FROM sessions WHERE token = ?').get(token);
+}
+
+function deleteSession(token) {
+  db.prepare('DELETE FROM sessions WHERE token = ?').run(token);
+}
+
 module.exports = {
   db,
   createRoom,
@@ -192,4 +241,11 @@ module.exports = {
   getGameLogs,
   addChatMessage,
   getChatHistory,
+  createUser,
+  getUserById,
+  getUserByEmail,
+  getUserByUsername,
+  createSession,
+  getSession,
+  deleteSession,
 };

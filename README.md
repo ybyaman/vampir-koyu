@@ -23,6 +23,7 @@ internete açtığın anda arkadaşların tarayıcıdan bağlanıp oynayabilir.
   - [2. Sunucuyu başlatma](#2-sunucuyu-başlatma)
   - [3. İnternete açma](#3-arkadaşlarının-bağlanabilmesi-için-internete-açma-cloudflare-tunnel)
   - [4. Oyuna başlama](#4-oyuna-başlama)
+- [Hesap ve giriş](#hesap-ve-giriş)
 - [Nasıl oynanır?](#nasıl-oynanır-kısa-kurallar)
 - [Sesli sohbet](#sesli-sohbet)
 - [Proje yapısı](#proje-yapısı)
@@ -36,7 +37,11 @@ internete açtığın anda arkadaşların tarayıcıdan bağlanıp oynayabilir.
 
 - 🌗 **Gece/gündüz döngüsü** — gece vampirler kurbanını seçer, gündüz
   tartışma ve oylamayla asılacak kişi belirlenir; faz değişince arka plan
-  1 saniyelik yumuşak bir animasyonla aydınlanır/kararır.
+  (ve tüm kart/panel renkleri) 3 saniyelik yavaş, yumuşak bir animasyonla
+  aydınlanır/kararır.
+- 🔐 **E-posta + şifre ile hesap** — takma isim yerine kayıt olurken
+  seçtiğin kalıcı bir kullanıcı adın var; oturumun bu tarayıcıda kalır,
+  tekrar tekrar isim yazmana gerek yok.
 - 🎭 **4 rol** — Köylü, Vampir, Soytarı (asılırsa tek başına kazanır),
   Doktor — oyuncu sayısına göre otomatik dağıtılır.
 - 💬 **Gerçek zamanlı sohbet** — lobi, gündüz, vampirlere özel gece kanalı
@@ -201,12 +206,38 @@ başlatışta URL değişir, tıpkı Cloudflare quick tunnel gibi.
 
 ### 4. Oyuna başlama
 
-1. Sen (host) linke girip bir takma isim yazıp **"Oda Kur"**a tıkla.
+1. Sen (host) linke girip önce bir hesap oluştur ya da girişini yap (bkz.
+   [Hesap ve giriş](#hesap-ve-giriş)), sonra **"Oda Kur"**a tıkla.
 2. Ekranda bir **oda kodu** (örn. `AB3K9`) ve "Linki Kopyala" butonu göreceksin.
-   Bu linki (`https://.../?room=AB3K9`) arkadaşlarına gönder — link,
-   oda kodunu otomatik doldurur, onlar sadece isim yazıp "Katıl"a basar.
+   Bu linki (`https://.../?room=AB3K9`) arkadaşlarına gönder — link, oda
+   kodunu otomatik doldurur; arkadaşların da kendi hesaplarıyla girip
+   "Katıl"a basar.
 3. En az **4 oyuncu** odaya girdiğinde host "Oyunu Başlat" butonunu görür.
 4. Roller otomatik dağıtılır, herkesin ekranında sadece kendi rolü görünür.
+
+## Hesap ve giriş
+
+Siteye girince ilk gördüğün ekran bir giriş/kayıt ekranıdır — artık serbest
+bir "takma isim" yazmak yerine gerçek (küçük) bir hesabın var:
+
+- **Kayıt Ol** sekmesinde e-posta, bir **kullanıcı adı** (2-20 karakter,
+  harf/rakam/`_`) ve en az 6 karakterlik bir şifre girip hesabını
+  oluşturursun. Bu kullanıcı adı, artık tüm odalarda/oyunlarda görünen
+  kalıcı ismin.
+- **Giriş Yap** sekmesinden aynı e-posta/şifreyle daha önce açtığın hesaba
+  tekrar girebilirsin.
+- Giriş yaptığında oturumun bu tarayıcıda kalır (üst köşede kullanıcı adın
+  görünür) — sayfayı yenilesen bile tekrar giriş yapman gerekmez. Farklı
+  bir tarayıcıdan/cihazdan bağlanmak istersen orada ayrıca giriş yapman
+  gerekir.
+- Sağ üstteki **"Çıkış Yap"** ile oturumu kapatıp başka bir hesapla (ya da
+  arkadaşının bilgisayarında kendi hesabınla) tekrar girebilirsin.
+
+> ⚠️ **Bilinen kısıt:** Şu an şifre sıfırlama ("şifremi unuttum") yok —
+> bunun için bir e-posta gönderme altyapısı (SMTP) gerekir, self-hosted bu
+> proje için şimdilik eklenmedi. Şifreni unutursan yeni bir hesap açman
+> gerekir. E-posta doğrulama da yok; e-posta adresi sadece giriş için
+> kullanılır, hiçbir yere gönderilmez.
 
 ## Nasıl oynanır? (kısa kurallar)
 
@@ -331,6 +362,7 @@ kurmana gerek yoktur.
 vampir-koyu/
 ├── server/
 │   ├── index.js         # Express + Socket.io bootstrap, socket olay handler'ları
+│   ├── auth.js           # E-posta/şifre kayıt-giriş, oturum (session) yönetimi
 │   ├── gameManager.js    # Oda/oyun durum makinesi (gece → gündüz → oylama)
 │   ├── roles.js          # Rol tanımları ve oyuncu sayısına göre rol dağıtımı
 │   └── db.js              # SQLite şeması ve yardımcı fonksiyonlar
@@ -345,9 +377,11 @@ vampir-koyu/
 
 ## Güvenlik ve gizlilik notları
 
-- Bu proje bir **arkadaş grubu partisi** için tasarlandı; kullanıcı hesabı,
-  şifre, e-posta gibi bir sistem yok. Oda kodunu bilen herkes katılabilir —
-  linki sadece davet etmek istediğin kişilerle paylaş.
+- Bu proje bir **arkadaş grubu partisi** için tasarlandı; hesap sistemi
+  bilinçli olarak sade tutuldu (e-posta doğrulama ve şifre sıfırlama yok,
+  bkz. [Hesap ve giriş](#hesap-ve-giriş)). Şifreler asla düz metin
+  saklanmaz — tuzlanıp (salt) hash'lenir. Oda kodunu bilen VE giriş yapmış
+  herkes katılabilir — linki sadece davet etmek istediğin kişilerle paylaş.
 - Cloudflare quick tunnel her açılışta yeni ve tahmin edilmesi zor bir adres
   üretir; yine de linki halka açık yerlerde paylaşma.
 - Oyun verileri (oda/oyuncu/oyun geçmişi, sohbet) `data/vampirkoyu.db`

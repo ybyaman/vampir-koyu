@@ -24,7 +24,9 @@ oynayabilmesi için uçtan uca mimariyi anlatır.
    │   │  Node.js Sunucu (Express + Socket.io)      │   │
    │   │                                             │   │
    │   │   ├─ HTTP: statik dosyalar (public/)       │   │
+   │   │   ├─ HTTP: /api/auth/* (kayıt/giriş/çıkış)  │   │
    │   │   ├─ WebSocket: gerçek zamanlı oyun olayları│   │
+   │   │   ├─ auth.js: hesap + oturum (session)      │   │
    │   │   ├─ gameManager.js: oda/oyun durum makinesi│   │
    │   │   └─ roles.js: rol tanımları ve gece mantığı│   │
    │   └───────────────────┬─────────────────────────┘   │
@@ -73,8 +75,9 @@ LOBBY → (host başlatır) → GECE → GÜNDÜZ_TARTIŞMA → GÜNDÜZ_OYLAMA
                                 OYUN_BİTTİ
 ```
 
-- **LOBBY**: Oyuncular takma isimle katılır, host (odayı açan kişi) oyunu
-  başlatır. Oyuncu sayısına göre roller otomatik dağıtılır (yaklaşık her
+- **LOBBY**: Oyuncular kendi hesaplarıyla (bkz. [2.7 Hesap ve
+  Oturum](#27-hesap-ve-oturum-serverauthjs)) katılır, host (odayı açan
+  kişi) oyunu başlatır. Oyuncu sayısına göre roller otomatik dağıtılır (yaklaşık her
   4 oyuncudan 1'i vampir, 4. oyuncudan itibaren her zaman 1 doktor var;
   soytarı SADECE 5+ oyuncuda eklenir — tam 4 oyuncuda soytarı yerine
   doktor vardır, bkz. `roles.js` — `computeRoleCounts`).
@@ -113,17 +116,26 @@ arkadaşının aynı anda oynadığı bu ölçekte fazlasıyla yeterlidir.
 
 ### 2.4 Frontend (`public/`)
 Tek sayfalık, framework'süz (vanilla JS) bir arayüz:
-- Giriş ekranı: oda kodu + takma isim.
+- Hesap ekranı: e-posta/şifre ile giriş ya da kayıt (bkz. 2.7).
+- Giriş (oda) ekranı: oda kur / oda koduyla katıl — artık isim sormaz,
+  hesabın kullanıcı adını otomatik kullanır.
 - Lobi ekranı: katılan oyuncu listesi, host için "Oyunu Başlat" butonu.
 - Oyun ekranı: rol kartı (sadece sana özel), faz göstergesi, geri sayım,
   sohbet kutusu, gece aksiyonu / gündüz oylama arayüzü.
-- Bağlantı token'ı `localStorage`'da tutulur; sayfa yenilenirse veya
-  bağlantı kopup geri gelirse aynı oyuncu olarak odaya otomatik geri bağlanır.
+- Oturum token'ı `localStorage`'da tutulur (`vk_session_token`); sayfa
+  yenilenirse veya bağlantı kopup geri gelirse aynı hesapla/oyuncuyla
+  odaya otomatik geri bağlanır (bkz. 2.7).
 - Her oyuncuya (katıldığında, ve her yeni oyun başında yeniden) sunucu
   tarafında bir sohbet rengi atanır (`gameManager.js` — `CHAT_COLOR_PALETTE`,
   `assignChatColors`); bu renk `room:state` ile istemciye gider ve sohbette
-  oyuncunun ismi o renkle yazılır. Gece/gündüz arası arka plan renk geçişi
-  1 saniyelik CSS `transition` ile animasyonludur.
+  oyuncunun ismi o renkle yazılır. Gece/gündüz arası arka plan (ve tüm
+  kart/panel/kenarlık) renk geçişi 3 saniyelik, yavaş bir CSS `transition`
+  ile animasyonludur — bu değişkenler `@property` ile "renk" tipinde kayıtlı
+  olduğu için (`style.css`), tarayıcı tüm bağımlı elemanları TEK bir yerden
+  (body üzerindeki transition'dan) otomatik ve senkronize şekilde birbirine
+  geçirir; @property olmadan CSS custom property'lerinin değişimi tarayıcı
+  tarafından animasyonlu geçirilemez — "anlık geçiş" şikayetinin kök nedeni
+  buydu.
 
 ### 2.5 İnternete Açma (Cloudflare Tunnel)
 Kendi bilgisayarın genelde doğrudan internetten erişilebilir değildir (ev
@@ -189,6 +201,39 @@ listesine eklemen yeterli olur. Bu durumda bile yazılı sohbet her zaman
 çalışmaya devam eder — sesli sohbet tamamen "en iyi çaba" (best-effort)
 ek bir katmandır, oyunun temel akışı ona bağımlı değildir.
 
+### 2.7 Hesap ve Oturum (`server/auth.js`)
+Önceden bu proje hesapsızdı: her tarayıcı, kendi rastgele ürettiği ve
+`localStorage`'da tuttuğu bir `clientToken` ile kimliklenirdi. Artık gerçek
+(ama bilinçli olarak sade) bir e-posta+şifre hesap sistemi var:
+
+- **Şifreler** asla düz metin saklanmaz — Node'un yerleşik `crypto.scrypt`'i
+  ile rastgele bir tuzla (salt) hash'lenir (`hashPassword`/`verifyPassword`
+  — `auth.js`). Bunun için ekstra bir native bağımlılık (örn. bcrypt)
+  eklemeye gerek kalmadı.
+- **Kayıt/giriş** iki düz REST ucu (`POST /api/auth/register`,
+  `POST /api/auth/login` — `server/index.js`) üzerinden olur; başarılı
+  olursa rastgele bir **oturum token'ı** (`crypto.randomBytes(32)`) üretilip
+  `sessions` tablosuna yazılır ve istemciye döner.
+- İstemci bu token'ı `localStorage`'da tutar ve her Socket.io
+  bağlantısında **handshake sırasında** (`io({ auth: (cb) => cb({token}) })`)
+  sunucuya gösterir. Sunucu tarafında bir `io.use` ara katmanı
+  (middleware) bu token'ı doğrular; geçersiz/eksikse bağlantı reddedilir
+  (istemci bunu `connect_error` olayında `UNAUTHORIZED` mesajıyla görür ve
+  hesap ekranına döner).
+- Doğrulama başarılıysa `socket.data.userId`/`username` set edilir ve oda
+  içi kalıcı kimlik (`clientToken`, eskiden rastgele üretilirdi) artık
+  **hesaba bağlı ve deterministik**: `` `u${userId}` ``. Bunun pratik
+  faydası: aynı hesapla farklı bir tarayıcıdan/cihazdan bağlansan bile
+  (aynı odaya) aynı oyuncu olarak tanınırsın.
+- `room:create`/`room:join` artık istemciden nickname/token ALMAZ — ikisi
+  de sunucu tarafında, doğrulanmış `socket.data`'dan okunur. Bu hem daha
+  güvenli (nickname sahteciliği imkansız) hem de istemci tarafını
+  basitleştirir.
+- **Bilinçli kısıtlar:** e-posta doğrulama yok, şifre sıfırlama yok (SMTP
+  gerektirir), oturumlar süresiz geçerli (kullanım ölçeği ve tehdit modeli
+  düşünüldüğünde — küçük bir arkadaş grubu partisi — bu kabul edilebilir
+  bir basitleştirme).
+
 ## 3. Veri Akışı Örneği (bir gece turu)
 
 1. Sunucu `GECE` fazına geçer, tüm istemcilere `phase:night` olayı yayınlar.
@@ -220,3 +265,13 @@ ek bir katmandır, oyunun temel akışı ona bağımlı değildir.
   ölçeğinde (kanal başına genelde birkaç kişi) mesh topolojisi SFU'dan
   daha basit ve yeterlidir; bedeli TURN'süz kısıtlı ağlarda bağlantının
   bazen kurulamaması, ki bu durumda yazılı sohbet yedek olarak kalır.
+- **`crypto.scrypt` ile parola hash'leme (bcrypt yerine)**: Node'un
+  standart kütüphanesinde hazır geliyor — ekstra bir native bağımlılık
+  (derleme/prebuilt-binary riski taşıyan, bu projede `better-sqlite3` ile
+  zaten bir kez yaşanmış bir sorun kaynağı) eklemeden, kabul görmüş,
+  güvenli bir parola hash algoritması kullanmanın en sürtünmesiz yolu.
+- **Basit oturum token'ı (JWT yerine)**: Süresiz, sunucu tarafında
+  saklanan (SQLite `sessions` tablosu) rastgele bir token — imzalı/kendi
+  kendini doğrulayan bir JWT'ye kıyasla daha az esnek (örn. token
+  içeriğini değiştirip yeniden imzalamak gerekmez) ama iptal etmesi
+  (çıkış yap = satırı sil) çok daha basit ve bu ölçekte yeterli.
