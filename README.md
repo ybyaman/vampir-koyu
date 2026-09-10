@@ -26,6 +26,8 @@ internete açtığın anda arkadaşların tarayıcıdan bağlanıp oynayabilir.
 - [Hesap ve giriş](#hesap-ve-giriş)
 - [Nasıl oynanır?](#nasıl-oynanır-kısa-kurallar)
 - [Sesli sohbet](#sesli-sohbet)
+- [Atmosfer/his iyileştirmeleri](#atmosferhis-iyileştirmeleri)
+- [Profil ve istatistikler](#profil-ve-istatistikler)
 - [Proje yapısı](#proje-yapısı)
 - [Güvenlik ve gizlilik notları](#güvenlik-ve-gizlilik-notları)
 - [Sorun giderme](#sorun-giderme)
@@ -62,6 +64,15 @@ internete açtığın anda arkadaşların tarayıcıdan bağlanıp oynayabilir.
 - 🗄️ **Kalıcı geçmiş** — oda/oyuncu/oyun/sohbet kayıtları SQLite ile tek
   dosyada (`data/vampirkoyu.db`) tutulur, sunucuyu yeniden başlatsan bile
   geçmiş kaybolmaz (o an açık oyunun canlı durumu hariç).
+- 🔊 **Atmosfer/his iyileştirmeleri** — faz geçişlerinde (gece/gündüz/oylama),
+  ölümde ve oyun sonunda kısa, tamamen tarayıcı içinde sentezlenen (dışarıdan
+  ses dosyası indirilmeyen) işaret sesleri; sesli sohbette o an konuşan
+  kişinin oyuncu listesinde ve sesli sohbet panelinde yeşil bir parıltıyla
+  belli olduğu bir "kim konuşuyor" göstergesi; sohbette hızlı emoji tepkileri
+  (👍😂😱🧛🤔) — tüm sesler sağ üstteki 🔊 ikonundan kapatılabilir.
+- 📊 **Profil ve istatistikler** — hesap rozetindeki "📊 Profil" ile toplam
+  oynanan oyun, galibiyet, kazanma oranı, en çok oynanan rol ve son
+  oyunların geçmişi (oda, rol, sonuç) görüntülenir.
 
 ## Nasıl çalışır?
 
@@ -363,16 +374,52 @@ kurmana gerek yoktur.
 > zaman yedek olarak çalışmaya devam eder** — sesli sohbet olmasa da oyunu
 > oynamaya devam edebilirsiniz.
 
+## Atmosfer/his iyileştirmeleri
+
+Oyunu daha "canlı" hissettirmek için üç küçük dokunuş eklendi:
+
+- **Ses efektleri:** Gece başlarken alçak/uzak bir uluma hissi, gündüz
+  başlarken parlak bir çan sesi, oylama başlarken kısa bir "tık-tık", biri
+  öldüğünde donuk bir vuruş, oyun bitince (kazandıysan) yükselen bir zafer
+  melodisi ya da (kaybettiysen) alçalan bir üzüntü melodisi çalar. Hiçbiri
+  dışarıdan bir ses dosyası olarak indirilmez — hepsi Web Audio API ile
+  anlık olarak sentezlenir (osilatör + gürültü). Sağ üstteki 🔊/🔇 ikonuyla
+  tamamen kapatılabilir; tercih tarayıcıda hatırlanır.
+- **"Kim konuşuyor" göstergesi:** Sesli sohbet açıkken, bas-konuş tuşuna
+  basılı tutan bir oyuncunun adı hem "Oyuncular" listesinde hem de sesli
+  sohbet panelindeki kişi listesinde yeşil bir parıltıyla vurgulanır. Bu
+  bilgi sunucuda da yazılı sohbetle AYNI kanal kuralına göre süzülür — yani
+  gece vampir olmayan biri, "kim konuşuyor" üzerinden dolaylı olarak kimlerin
+  vampir kanalında olduğunu asla öğrenemez.
+- **Emoji tepkileri:** Sohbet kutusunun altındaki 👍😂😱🧛🤔 butonlarından
+  birine basınca, o anki kanaldaki herkesin ekranında sohbetin üstünde küçük
+  bir animasyonla "patlayan" bir emoji belirir. Kalıcı değildir, sohbet
+  geçmişine kaydedilmez — sadece anlık bir tepki.
+
+## Profil ve istatistikler
+
+Üstteki hesap rozetinden **"📊 Profil"** butonuna basınca açılan pencerede:
+
+- Toplam oynanan oyun sayısı, galibiyet sayısı ve kazanma oranı,
+- En çok oynadığın rol ve rol bazında oynama/galibiyet dağılımı,
+- Son 20 oyunun geçmişi (tarih, oda, o oyunda aldığın rol, kazandın mı
+  kaybettin mi)
+
+görüntülenir. Bu veriler her oyun BİTTİĞİNDE (`game_players` tablosuna)
+kalıcı olarak kaydedilir — `players` tablosunun aksine (o, odanın ANLIK
+durumunu tuttuğu için yeni oyunda sıfırlanır), `game_players` geçmiş bir
+kayıt defteri gibi davranır ve hiçbir zaman üzerine yazılmaz.
+
 ## Proje yapısı
 
 ```
 vampir-koyu/
 ├── server/
-│   ├── index.js         # Express + Socket.io bootstrap, socket olay handler'ları
+│   ├── index.js         # Express + Socket.io bootstrap, socket olay handler'ları, /api/stats/me
 │   ├── auth.js           # E-posta/şifre kayıt-giriş, oturum (session) yönetimi
-│   ├── gameManager.js    # Oda/oyun durum makinesi (gece → gündüz → oylama)
+│   ├── gameManager.js    # Oda/oyun durum makinesi (gece → gündüz → oylama), oyun geçmişi kaydı
 │   ├── roles.js          # Rol tanımları ve oyuncu sayısına göre rol dağıtımı
-│   └── db.js              # SQLite şeması ve yardımcı fonksiyonlar
+│   └── db.js              # SQLite şeması ve yardımcı fonksiyonlar (game_players dahil)
 ├── public/
 │   ├── index.html         # Tek sayfalık arayüz
 │   ├── css/style.css       # Gece/gündüz temaları, animasyonlar

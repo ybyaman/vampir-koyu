@@ -57,6 +57,14 @@ function pickColorForNewPlayer(room) {
   return pool[Math.floor(Math.random() * pool.length)];
 }
 
+// clientToken artık hesaba bağlı, deterministik bir değer: "u" + userId
+// (bkz. index.js'teki io.use middleware'i). Oyun geçmişini (game_players)
+// hesaba bağlamak için buradan userId'yi geri çıkarıyoruz.
+function userIdFromToken(token) {
+  const m = /^u(\d+)$/.exec(token || '');
+  return m ? Number(m[1]) : null;
+}
+
 /** @type {Map<string, any>} oda kodu -> oda durumu */
 const rooms = new Map();
 
@@ -525,6 +533,30 @@ function endGame(room, winner, lastAnnouncement, winnerLabelOverride) {
   db.setRoomStatus(room.roomId, 'finished');
   db.addGameLog(room.roomId, room.gameId, room.round, 'game_over', 'game_over', null, null, winner);
 
+  // Profil/istatistik sayfası için: bu oyunda yer alan her hesaplı oyuncu
+  // için kalıcı bir satır kaydet (rolü, takımı, kazanıp kazanmadığı...).
+  const gamePlayerRows = [...room.players.values()]
+    .map((p) => {
+      const userId = userIdFromToken(p.clientToken);
+      if (!userId || !p.role) return null;
+      const team = (ROLES[p.role] && ROLES[p.role].team) || 'unknown';
+      let won = false;
+      if (winner === 'jester') won = p.role === 'jester';
+      else if (winner !== 'aborted') won = team === winner;
+      return {
+        gameId: room.gameId,
+        roomId: room.roomId,
+        userId,
+        nickname: p.nickname,
+        role: p.role,
+        team,
+        aliveAtEnd: p.alive ? 1 : 0,
+        won: won ? 1 : 0,
+      };
+    })
+    .filter(Boolean);
+  db.addGamePlayers(gamePlayerRows);
+
   const roles = [...room.players.values()].map((p) => ({ nickname: p.nickname, role: p.role, alive: p.alive }));
   ioRef.to(room.code).emit('game:over', {
     winner, // 'villagers' | 'vampires' | 'aborted' | 'jester'
@@ -712,6 +744,51 @@ function sendChat(socket, message) {
   }
 }
 
+// Sohbette gösterilebilecek hızlı emoji tepkileri. Sunucu tarafında da
+// doğrulanır ki istemci sahte/rastgele bir string göndermesin.
+const REACTION_EMOJIS = new Set(['👍', '😂', '😱', '🧛', '🤔', '❤️', '🗳️', '💀']);
+
+// Emoji tepkileri sohbet mesajı GİBİ davranır (aynı kanal kuralları) ama
+// kalıcı değildir — veritabanına yazılmaz, sadece o an aynı kanaldaki
+// herkese anlık bir "patlama" animasyonu olarak yayınlanır.
+function sendReaction(socket, emoji) {
+  const { room, player } = playerBySocket(socket);
+  if (!room || !player) throw new Error('NOT_IN_ROOM');
+  if (!REACTION_EMOJIS.has(emoji)) throw new Error('INVALID_REACTION');
+
+  const channel = resolveChatChannel(room, player);
+  if (!channel) throw new Error('CANNOT_CHAT_NOW');
+
+  const payload = { nickname: player.nickname, emoji, channel };
+  if (channel === 'lobby' || channel === 'day') {
+    ioRef.to(room.code).emit('chat:reaction', payload);
+  } else if (channel === 'vampire') {
+    emitToTeam(room, 'vampire', 'chat:reaction', payload);
+  } else if (channel === 'dead') {
+    for (const p of room.players.values()) {
+      if (!p.alive && p.socketId) ioRef.to(p.socketId).emit('chat:reaction', payload);
+    }
+  }
+}
+
+// "Şu an kim konuşuyor" göstergesi (atmosfer/his iyileştirmesi): bas-konuş
+// tuşuna basılı tutulduğunda/bırakıldığında, SADECE o an aynı sohbet/sesli
+// kanalda olan diğer oyunculara iletilir — resolveChatChannel ile aynı
+// kanal kuralına uyar ki gece vampir olmayan biri "kim konuşuyor" bilgisi
+// üzerinden dolaylı olarak kimlerin vampir kanalında olduğunu öğrenemesin.
+function setTalkingState(socket, talking) {
+  const { room, player } = playerBySocket(socket);
+  if (!room || !player) throw new Error('NOT_IN_ROOM');
+  const channel = player.connected ? resolveChatChannel(room, player) : null;
+  if (!channel) return;
+  for (const other of room.players.values()) {
+    if (other.clientToken === player.clientToken) continue;
+    if (!other.connected || !other.socketId) continue;
+    if (resolveChatChannel(room, other) !== channel) continue;
+    ioRef.to(other.socketId).emit('voice:talking', { clientToken: player.clientToken, talking: !!talking });
+  }
+}
+
 module.exports = {
   init,
   createRoom,
@@ -722,6 +799,8 @@ module.exports = {
   submitNightAction,
   submitVote,
   sendChat,
+  sendReaction,
+  setTalkingState,
   playAgain,
   forceEndGame,
   revealOwnRole,

@@ -39,6 +39,7 @@
     <button id="voiceToggleBtn" class="primary">Sesli Sohbeti Aç</button>
     <div id="voiceActiveControls" hidden>
       <div id="voiceChannelLabel" class="muted"></div>
+      <ul id="voicePeerList" class="voice-peer-list"></ul>
       <button id="voicePttBtn" class="voice-ptt-btn" disabled>🎙️ Basılı Tut (ya da Space)</button>
       <button id="voiceDisableBtn" class="danger">Sesli Sohbeti Kapat</button>
     </div>
@@ -48,8 +49,10 @@
   <header class="topbar">
     <div class="brand">🧛 Vampir Köyü</div>
     <div class="topbar-right">
+      <button id="soundToggleBtn" class="icon-btn" title="Sesi aç/kapat">🔊</button>
       <div id="accountBadge" class="account-badge" hidden>
         <span id="accountUsername"></span>
+        <button id="profileBtn" title="Profil ve istatistikler">📊 Profil</button>
         <button id="logoutBtn" title="Çıkış yap">Çıkış Yap</button>
       </div>
       <div id="roomBadge" class="room-badge" hidden>
@@ -58,6 +61,17 @@
       </div>
     </div>
   </header>
+
+  <!-- ---------- Profil / istatistik penceresi ---------- -->
+  <div id="profileOverlay" class="profile-overlay" hidden>
+    <div class="profile-box">
+      <div class="profile-header">
+        <h2>📊 Profilim</h2>
+        <button id="profileCloseBtn" class="icon-btn" title="Kapat">✕</button>
+      </div>
+      <div id="profileContent"><p class="muted">Yükleniyor...</p></div>
+    </div>
+  </div>
 
   <main id="app">
 
@@ -136,6 +150,14 @@
       <div class="card chat-card">
         <h3>Sohbet</h3>
         <div id="lobbyChatLog" class="chat-log"></div>
+        <div id="lobbyReactionZone" class="reaction-zone"></div>
+        <div class="reaction-bar">
+          <button type="button" class="reaction-btn" data-emoji="👍">👍</button>
+          <button type="button" class="reaction-btn" data-emoji="😂">😂</button>
+          <button type="button" class="reaction-btn" data-emoji="😱">😱</button>
+          <button type="button" class="reaction-btn" data-emoji="🧛">🧛</button>
+          <button type="button" class="reaction-btn" data-emoji="🤔">🤔</button>
+        </div>
         <form id="lobbyChatForm" class="chat-form">
           <input id="lobbyChatInput" type="text" maxlength="500" placeholder="Mesaj yaz..." autocomplete="off" />
           <button type="submit">Gönder</button>
@@ -150,6 +172,14 @@
         <div class="card chat-card chat-card-large">
           <h3>Sohbet <span id="chatChannelHint" class="muted"></span></h3>
           <div id="gameChatLog" class="chat-log chat-log-large"></div>
+          <div id="gameReactionZone" class="reaction-zone"></div>
+          <div class="reaction-bar">
+            <button type="button" class="reaction-btn" data-emoji="👍">👍</button>
+            <button type="button" class="reaction-btn" data-emoji="😂">😂</button>
+            <button type="button" class="reaction-btn" data-emoji="😱">😱</button>
+            <button type="button" class="reaction-btn" data-emoji="🧛">🧛</button>
+            <button type="button" class="reaction-btn" data-emoji="🤔">🤔</button>
+          </div>
           <form id="gameChatForm" class="chat-form">
             <input id="gameChatInput" type="text" maxlength="500" placeholder="Mesaj yaz..." autocomplete="off" />
             <button type="submit">Gönder</button>

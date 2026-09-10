@@ -42,6 +42,7 @@
     lastWordsSaid: false,
     votedNicknames: new Set(),
     nicknameColors: {},
+    clientToken: null,
   };
 
   let previousPhase = null;
@@ -62,6 +63,107 @@
     clearTimeout(toast._t);
     toast._t = setTimeout(() => { el.hidden = true; }, 3500);
   }
+
+  // ---------- Ses efektleri (atmosfer/his iyileştirmesi) ----------
+  // Dışarıdan bir ses dosyası indirmek yerine Web Audio API ile anlık
+  // sentezleniyor — hem ek bir dosya/lisans derdi yok hem de sayfa ağırlığı
+  // artmıyor. Tarayıcıların "otomatik oynatma" kısıtlaması yüzünden
+  // AudioContext ancak bir kullanıcı etkileşiminden (tık/tuş) SONRA ses
+  // üretebiliyor; bu yüzden context'i ilk pointerdown/keydown'da hazırlıyoruz.
+  let audioCtx = null;
+  function getAudioCtx() {
+    if (!audioCtx) {
+      try {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      } catch {
+        return null;
+      }
+    }
+    if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
+    return audioCtx;
+  }
+  const primeAudio = () => getAudioCtx();
+  document.addEventListener('pointerdown', primeAudio, { once: true });
+  document.addEventListener('keydown', primeAudio, { once: true });
+
+  function isSoundOn() { return localStorage.getItem('vk_sound') !== 'off'; }
+  function setSoundOn(on) { localStorage.setItem('vk_sound', on ? 'on' : 'off'); }
+  function renderSoundToggle() {
+    $('soundToggleBtn').textContent = isSoundOn() ? '🔊' : '🔇';
+  }
+  $('soundToggleBtn').addEventListener('click', () => {
+    setSoundOn(!isSoundOn());
+    renderSoundToggle();
+  });
+  renderSoundToggle();
+
+  function playTone(freq, duration, { type = 'sine', gain = 0.2, startAt = 0, glideTo = null } = {}) {
+    const ctx = getAudioCtx();
+    if (!ctx || !isSoundOn()) return;
+    const t0 = ctx.currentTime + startAt;
+    const osc = ctx.createOscillator();
+    const g = ctx.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, t0);
+    if (glideTo) osc.frequency.exponentialRampToValueAtTime(glideTo, t0 + duration);
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.linearRampToValueAtTime(gain, t0 + 0.03);
+    g.gain.exponentialRampToValueAtTime(0.001, t0 + duration);
+    osc.connect(g).connect(ctx.destination);
+    osc.start(t0);
+    osc.stop(t0 + duration + 0.05);
+  }
+
+  function playNoiseBurst(duration, { gain = 0.2, startAt = 0, filterFreq = 800 } = {}) {
+    const ctx = getAudioCtx();
+    if (!ctx || !isSoundOn()) return;
+    const t0 = ctx.currentTime + startAt;
+    const bufferSize = Math.max(1, Math.floor(ctx.sampleRate * duration));
+    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+    const noise = ctx.createBufferSource();
+    noise.buffer = buffer;
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.value = filterFreq;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(gain, t0);
+    g.gain.exponentialRampToValueAtTime(0.001, t0 + duration);
+    noise.connect(filter).connect(g).connect(ctx.destination);
+    noise.start(t0);
+    noise.stop(t0 + duration + 0.05);
+  }
+
+  // Her faz geçişi/olay için kısa, sentezlenmiş bir "işaret sesi".
+  const sfx = {
+    night() {
+      playTone(320, 1.1, { type: 'sine', gain: 0.15, glideTo: 170 });
+      playTone(480, 0.9, { type: 'sine', gain: 0.08, startAt: 0.15, glideTo: 250 });
+    },
+    day() {
+      playTone(660, 0.25, { type: 'triangle', gain: 0.18 });
+      playTone(880, 0.3, { type: 'triangle', gain: 0.16, startAt: 0.12 });
+      playTone(1100, 0.35, { type: 'triangle', gain: 0.14, startAt: 0.24 });
+    },
+    vote() {
+      playTone(520, 0.18, { type: 'square', gain: 0.12 });
+      playTone(520, 0.18, { type: 'square', gain: 0.12, startAt: 0.16 });
+    },
+    death() {
+      playNoiseBurst(0.35, { gain: 0.22, filterFreq: 300 });
+      playTone(90, 0.5, { type: 'sine', gain: 0.2, glideTo: 45 });
+    },
+    win() {
+      [523, 659, 784, 1047].forEach((f, i) => playTone(f, 0.35, { type: 'triangle', gain: 0.16, startAt: i * 0.12 }));
+    },
+    lose() {
+      [392, 349, 311, 261].forEach((f, i) => playTone(f, 0.4, { type: 'sawtooth', gain: 0.12, startAt: i * 0.14 }));
+    },
+    reaction() {
+      playTone(1200, 0.12, { type: 'sine', gain: 0.1 });
+    },
+  };
 
   function screenForPhase(phase) {
     if (phase === 'lobby') return 'screen-lobby';
@@ -106,6 +208,7 @@
     CANNOT_SELF_PROTECT_TWICE: 'Art arda iki gece kendini koruyamazsın — başka birini seç.',
     ALREADY_SAID: 'Son sözünü zaten söyledin.',
     EMPTY_MESSAGE: 'Boş mesaj gönderemezsin.',
+    INVALID_REACTION: 'Geçersiz tepki.',
   };
   function friendlyError(err) {
     return ERROR_MESSAGES[err] || err || 'Bilinmeyen hata';
@@ -184,6 +287,69 @@
     location.reload();
   });
 
+  // ---------- Profil / istatistik penceresi ----------
+  async function loadProfile() {
+    const content = $('profileContent');
+    content.innerHTML = '<p class="muted">Yükleniyor...</p>';
+    try {
+      const res = await fetch('/api/stats/me', { headers: { Authorization: `Bearer ${getToken()}` } });
+      const data = await res.json();
+      if (!data.ok) { content.innerHTML = '<p class="error">İstatistikler yüklenemedi.</p>'; return; }
+      renderProfile(data);
+    } catch {
+      content.innerHTML = '<p class="error">İstatistikler yüklenemedi. Bağlantını kontrol et.</p>';
+    }
+  }
+
+  function renderProfile(data) {
+    const summary = data.summary || {};
+    const roles = data.roles || [];
+    const history = data.history || [];
+    const played = summary.gamesPlayed || 0;
+    const wins = summary.wins || 0;
+    const winRate = played > 0 ? Math.round((wins / played) * 100) : 0;
+    const topRole = roles[0] ? roleName(roles[0].role) : '-';
+
+    const rolesHtml = roles.length
+      ? roles.map((r) => `<span class="profile-role-chip">${roleName(r.role)}: ${r.played} oyun, ${r.wins} galibiyet</span>`).join('')
+      : '<span class="muted">Henüz oyun oynanmadı.</span>';
+
+    const historyRows = history.length
+      ? history.map((h) => {
+          const won = !!h.won;
+          const aborted = h.winner === 'aborted';
+          const dateStr = new Date(`${h.started_at}Z`).toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+          const resultLabel = aborted ? 'Erken bitti' : (won ? 'Kazandın' : 'Kaybettin');
+          const resultClass = aborted ? '' : (won ? 'history-win' : 'history-loss');
+          return `<tr><td>${dateStr}</td><td>${escapeHtml(h.roomName || h.roomCode)}</td><td>${roleName(h.role)}</td><td class="${resultClass}">${resultLabel}</td></tr>`;
+        }).join('')
+      : '<tr><td colspan="4" class="muted">Henüz oyun geçmişi yok.</td></tr>';
+
+    $('profileContent').innerHTML = `
+      <div class="profile-stats-grid">
+        <div class="profile-stat"><div class="num">${played}</div><div class="label">Oynanan Oyun</div></div>
+        <div class="profile-stat"><div class="num">${wins}</div><div class="label">Galibiyet</div></div>
+        <div class="profile-stat"><div class="num">%${winRate}</div><div class="label">Kazanma Oranı</div></div>
+        <div class="profile-stat"><div class="num">${topRole}</div><div class="label">En Çok Oynanan Rol</div></div>
+      </div>
+      <h3>Rol Dağılımı</h3>
+      <div class="profile-roles">${rolesHtml}</div>
+      <h3>Son Oyunlar</h3>
+      <div style="overflow-x:auto">
+        <table class="history-table">
+          <thead><tr><th>Tarih</th><th>Oda</th><th>Rol</th><th>Sonuç</th></tr></thead>
+          <tbody>${historyRows}</tbody>
+        </table>
+      </div>
+    `;
+  }
+
+  $('profileBtn').addEventListener('click', () => {
+    $('profileOverlay').hidden = false;
+    loadProfile();
+  });
+  $('profileCloseBtn').addEventListener('click', () => { $('profileOverlay').hidden = true; });
+
   // ---------- Giriş (oda) ekranı ----------
   $('createRoomBtn').addEventListener('click', () => {
     $('joinError').hidden = true;
@@ -233,6 +399,12 @@
   // İlk kimlik doğrulanmış bağlantı kurulduğunda hesap ekranından oda
   // ekranına geç; daha önce bir odadaysak (ve bir davet linkiyle gelmediysek)
   // otomatik olarak o odaya yeniden katıl.
+  // Sunucu, bu bağlantının hesaba bağlı clientToken'ını (u<userId>) bildirir
+  // — sesli sohbetteki "kim teklif başlatsın" karşılaştırması bunu kullanır.
+  socket.on('session:me', (payload) => {
+    state.clientToken = payload.clientToken;
+  });
+
   socket.on('connect', () => {
     $('accountUsername').textContent = getUsername();
     $('accountBadge').hidden = false;
@@ -255,6 +427,7 @@
     list.innerHTML = '';
     state.players.forEach((p) => {
       const li = document.createElement('li');
+      li.dataset.nickname = p.nickname;
       li.innerHTML = `<span>${escapeHtml(p.nickname)}</span>`;
       if (p.isHost) li.innerHTML += '<span class="tag host">Host</span>';
       if (!p.connected) li.innerHTML += '<span class="tag offline">Bağlantı yok</span>';
@@ -319,6 +492,7 @@
     list.innerHTML = '';
     state.players.forEach((p) => {
       const li = document.createElement('li');
+      li.dataset.nickname = p.nickname;
       if (!p.alive) li.classList.add('dead');
       li.innerHTML = `<span>${escapeHtml(p.nickname)}</span>`;
       if (p.isHost) li.innerHTML += '<span class="tag host">Host</span>';
@@ -523,6 +697,34 @@
     else appendChatTo('gameChatLog', msg);
   });
 
+  // ---------- Emoji tepkileri (atmosfer/his iyileştirmesi) ----------
+  // Kalıcı değildir, sadece o an aynı kanaldaki herkese anlık bir "patlama"
+  // animasyonu olarak yayınlanır (bkz. gameManager.js: sendReaction).
+  function spawnReaction(zoneId, emoji, nickname) {
+    const zone = $(zoneId);
+    if (!zone) return;
+    const el = document.createElement('div');
+    el.className = 'reaction-pop';
+    el.textContent = emoji;
+    el.title = nickname;
+    zone.appendChild(el);
+    setTimeout(() => el.remove(), 1700);
+  }
+
+  document.querySelectorAll('.reaction-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      socket.emit('chat:reaction', { emoji: btn.dataset.emoji }, (res) => {
+        if (!res.ok) toast(friendlyError(res.error));
+      });
+    });
+  });
+
+  socket.on('chat:reaction', (payload) => {
+    sfx.reaction();
+    const zoneId = payload.channel === 'lobby' ? 'lobbyReactionZone' : 'gameReactionZone';
+    spawnReaction(zoneId, payload.emoji, payload.nickname);
+  });
+
   // ---------- Roller dağıtılırken 3-2-1 geri sayımı + rol açılışı ----------
   // "3, 2, 1, Başlıyor!" bittikten sonra aynı büyük yazı bu sefer oyuncunun
   // ROLÜNÜ gösterir, bir an öyle durur, sonra animasyonlu şekilde küçülerek
@@ -667,19 +869,40 @@
     localStream: null,
     channel: null,
     peers: new Map(), // clientToken -> RTCPeerConnection
+    peerNicknames: new Map(), // clientToken -> nickname (konuşma göstergesi için)
+    talkingTokens: new Set(), // şu an konuştuğu bildirilen clientToken'lar
   };
+
+  // Konuşma göstergesi: hem "Oyuncular" listesindeki ilgili satırı hem de
+  // sesli sohbet panelindeki peer satırını yeşil bir parıltıyla işaretler.
+  function updateSpeakingIndicator(nickname, talking) {
+    if (!nickname) return;
+    document.querySelectorAll(`li[data-nickname]`).forEach((li) => {
+      if (li.dataset.nickname === nickname) li.classList.toggle('speaking', talking);
+    });
+  }
 
   function renderVoicePanel() {
     const label = $('voiceChannelLabel');
     const pttBtn = $('voicePttBtn');
+    const peerList = $('voicePeerList');
     if (!voice.enabled) return;
     if (!voice.channel) {
       label.textContent = 'Şu an sesli kanalın yok (izliyorsun).';
       pttBtn.disabled = true;
+      peerList.innerHTML = '';
       setTalking(false);
     } else {
       label.textContent = `Kanal: ${CHANNEL_LABELS[voice.channel] || voice.channel} (${voice.peers.size} kişi)`;
       pttBtn.disabled = false;
+      peerList.innerHTML = '';
+      [...voice.peers.keys()].forEach((token) => {
+        const li = document.createElement('li');
+        li.dataset.token = token;
+        li.textContent = voice.peerNicknames.get(token) || '?';
+        li.classList.toggle('speaking', voice.talkingTokens.has(token));
+        peerList.appendChild(li);
+      });
     }
   }
 
@@ -687,9 +910,12 @@
     if (!voice.localStream) return;
     voice.localStream.getAudioTracks().forEach((t) => { t.enabled = isTalking; });
     $('voicePttBtn').classList.toggle('talking', isTalking);
+    updateSpeakingIndicator(state.nickname, isTalking);
+    if (voice.channel) socket.emit('voice:talking', { talking: isTalking }, () => {});
   }
 
   function ensureVoicePeer(remoteToken, remoteNickname) {
+    if (remoteNickname) voice.peerNicknames.set(remoteToken, remoteNickname);
     if (voice.peers.has(remoteToken)) return voice.peers.get(remoteToken);
     const pc = new RTCPeerConnection(RTC_CONFIG);
     voice.peers.set(remoteToken, pc);
@@ -712,8 +938,9 @@
       audioEl.srcObject = e.streams[0];
     };
     // İki taraf da aynı anda teklif göndermesin (glare) diye: clientToken'ı
-    // alfabetik olarak küçük olan taraf teklifi başlatır.
-    if (clientToken < remoteToken) {
+    // alfabetik olarak küçük olan taraf teklifi başlatır. state.clientToken
+    // sunucudan 'session:me' ile gelir (bkz. aşağıdaki socket.on('session:me')).
+    if (state.clientToken && state.clientToken < remoteToken) {
       pc.onnegotiationneeded = async () => {
         try {
           const offer = await pc.createOffer();
@@ -730,6 +957,9 @@
     if (pc) { pc.close(); voice.peers.delete(remoteToken); }
     const audioEl = document.getElementById('voiceAudio-' + remoteToken);
     if (audioEl) audioEl.remove();
+    const nickname = voice.peerNicknames.get(remoteToken);
+    voice.peerNicknames.delete(remoteToken);
+    if (voice.talkingTokens.delete(remoteToken) && nickname) updateSpeakingIndicator(nickname, false);
   }
 
   function closeAllVoicePeers() {
@@ -793,6 +1023,16 @@
     renderVoicePanel();
   });
 
+  socket.on('voice:talking', (payload) => {
+    if (!voice.enabled) return;
+    const { clientToken: token, talking } = payload;
+    if (talking) voice.talkingTokens.add(token); else voice.talkingTokens.delete(token);
+    const li = document.querySelector(`#voicePeerList li[data-token="${CSS.escape(token)}"]`);
+    if (li) li.classList.toggle('speaking', talking);
+    const nickname = voice.peerNicknames.get(token);
+    if (nickname) updateSpeakingIndicator(nickname, talking);
+  });
+
   socket.on('voice:signal', async (payload) => {
     if (!voice.enabled) return;
     const pc = ensureVoicePeer(payload.from, payload.fromNickname);
@@ -837,8 +1077,15 @@
   });
 
   // ---------- Sunucudan gelen oyun olayları ----------
+  const PHASE_SOUNDS = { night: () => sfx.night(), day_discussion: () => sfx.day(), day_vote: () => sfx.vote() };
+
   socket.on('room:state', (payload) => {
     const startingNewGame = previousPhase === 'lobby' && payload.phase === 'night';
+    // Sayfa ilk yüklendiğinde/yeniden bağlanıldığında (previousPhase henüz
+    // null) ses çalmasın — sadece GERÇEK bir faz değişiminde çalsın.
+    if (previousPhase !== null && previousPhase !== payload.phase && PHASE_SOUNDS[payload.phase]) {
+      PHASE_SOUNDS[payload.phase]();
+    }
     previousPhase = payload.phase;
 
     state.code = payload.code;
@@ -923,7 +1170,10 @@
 
   socket.on('day:announcement', (payload) => {
     $('phaseAnnouncement').textContent = payload.announcement;
-    if (payload.died) showDeathEffect(payload.died);
+    if (payload.died) {
+      sfx.death();
+      showDeathEffect(payload.died);
+    }
   });
 
   socket.on('day:voteProgress', (payload) => {
@@ -938,10 +1188,18 @@
   socket.on('day:result', (payload) => {
     $('phaseAnnouncement').textContent = payload.announcement;
     toast(payload.announcement);
-    if (payload.died) showDeathEffect(payload.died);
+    if (payload.died) {
+      sfx.death();
+      showDeathEffect(payload.died);
+    }
   });
 
   socket.on('game:over', (payload) => {
+    if (payload.winner !== 'aborted') {
+      const myTeam = state.roleInfo && state.roleInfo.team;
+      const iWon = payload.winner === 'jester' ? state.myRole === 'jester' : myTeam === payload.winner;
+      if (iWon) sfx.win(); else sfx.lose();
+    }
     $('gameOverTitle').textContent = payload.winner === 'aborted'
       ? `Oyun Bitti — ${payload.winnerLabel}`
       : `Oyun Bitti — ${payload.winnerLabel} Kazandı!`;

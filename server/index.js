@@ -58,6 +58,29 @@ app.post('/api/auth/logout', (req, res) => {
   res.json({ ok: true });
 });
 
+// Bearer token'ı doğrular, geçerliyse kullanıcıyı döner; değilse 401 yazıp
+// null döner (çağıran taraf null gördüğünde başka bir şey yapmadan çıkmalı).
+function requireAuth(req, res) {
+  const header = req.get('authorization') || '';
+  const token = header.startsWith('Bearer ') ? header.slice(7) : null;
+  const user = auth.getUserBySessionToken(token);
+  if (!user) {
+    res.status(401).json({ ok: false, error: 'UNAUTHORIZED' });
+    return null;
+  }
+  return user;
+}
+
+// ---------- Profil / istatistik ----------
+app.get('/api/stats/me', (req, res) => {
+  const user = requireAuth(req, res);
+  if (!user) return;
+  const summary = db.getUserGameSummary(user.id);
+  const roles = db.getUserRoleBreakdown(user.id);
+  const history = db.getUserGameHistory(user.id, 20);
+  res.json({ ok: true, summary, roles, history });
+});
+
 const server = http.createServer(app);
 const io = new Server(server, {
   // Cloudflare Tunnel / ngrok gibi ters proxy'lerin arkasında da sorunsuz
@@ -90,6 +113,12 @@ function fail(cb, error) {
 }
 
 io.on('connection', (socket) => {
+  // İstemciye KENDİ hesap-bağlı clientToken'ını bildir. Sesli sohbetteki
+  // "kim teklif başlatsın" (glare önleme) karşılaştırması buna ihtiyaç
+  // duyuyor — istemci artık serbest bir nickname/token üretmiyor, kimliği
+  // sunucudaki handshake doğrulamasından (io.use) geliyor.
+  socket.emit('session:me', { clientToken: socket.data.clientToken, username: socket.data.username });
+
   socket.on('room:create', (_payload, cb) => {
     try {
       const room = gm.createRoom(socket.data.username);
@@ -153,6 +182,17 @@ io.on('connection', (socket) => {
     }
   });
 
+  // Sohbette hızlı emoji tepkisi (atmosfer/his iyileştirmesi) — kalıcı
+  // değildir, sadece o an aynı kanaldaki herkese anlık olarak yayınlanır.
+  socket.on('chat:reaction', ({ emoji } = {}, cb) => {
+    try {
+      gm.sendReaction(socket, emoji);
+      ok(cb, {});
+    } catch (err) {
+      fail(cb, err);
+    }
+  });
+
   socket.on('game:playAgain', (_payload, cb) => {
     try {
       gm.playAgain(socket);
@@ -206,6 +246,17 @@ io.on('connection', (socket) => {
   socket.on('voice:requestChannel', (_payload, cb) => {
     try {
       gm.requestVoiceChannel(socket);
+      ok(cb, {});
+    } catch (err) {
+      fail(cb, err);
+    }
+  });
+
+  // "Kim şu an konuşuyor" göstergesi — bas-konuş tuşuna basılı
+  // tutulduğunda/bırakıldığında aynı kanaldaki diğer oyunculara iletilir.
+  socket.on('voice:talking', ({ talking } = {}, cb) => {
+    try {
+      gm.setTalkingState(socket, talking);
       ok(cb, {});
     } catch (err) {
       fail(cb, err);

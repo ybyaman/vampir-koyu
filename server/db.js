@@ -81,10 +81,25 @@ CREATE TABLE IF NOT EXISTS sessions (
   created_at  TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+CREATE TABLE IF NOT EXISTS game_players (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  game_id       INTEGER NOT NULL REFERENCES games(id) ON DELETE CASCADE,
+  room_id       INTEGER NOT NULL REFERENCES rooms(id) ON DELETE CASCADE,
+  user_id       INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  nickname      TEXT NOT NULL,
+  role          TEXT NOT NULL,
+  team          TEXT NOT NULL,
+  alive_at_end  INTEGER NOT NULL DEFAULT 0,
+  won           INTEGER NOT NULL DEFAULT 0,
+  created_at    TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 CREATE INDEX IF NOT EXISTS idx_players_room ON players(room_id);
 CREATE INDEX IF NOT EXISTS idx_logs_room_game ON game_logs(room_id, game_id);
 CREATE INDEX IF NOT EXISTS idx_chat_room_channel ON chat_messages(room_id, channel);
 CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);
+CREATE INDEX IF NOT EXISTS idx_game_players_user ON game_players(user_id);
+CREATE INDEX IF NOT EXISTS idx_game_players_game ON game_players(game_id);
 `);
 
 // ---------- Odalar ----------
@@ -188,6 +203,54 @@ function getChatHistory(roomId, channel, limit = 100) {
   `).all(roomId, channel, limit).reverse();
 }
 
+// ---------- Oyun-oyuncu geçmişi (profil/istatistik sayfası için) ----------
+// Her BİTEN oyun için, o oyunda yer alan her hesaplı oyuncunun rolünü,
+// takımını, oyun sonunda hayatta olup olmadığını ve kazanıp kazanmadığını
+// tek bir satır olarak burada saklıyoruz. `players` tablosu odanın ANLIK
+// durumunu tuttuğu (yeni oyunda role/is_alive sıfırlanır) için geçmiş
+// istatistik burada, ayrı ve kalıcı bir tabloda tutulmalı.
+function addGamePlayers(rows) {
+  if (!rows || rows.length === 0) return;
+  const stmt = db.prepare(`
+    INSERT INTO game_players (game_id, room_id, user_id, nickname, role, team, alive_at_end, won)
+    VALUES (@gameId, @roomId, @userId, @nickname, @role, @team, @aliveAtEnd, @won)
+  `);
+  const insertMany = db.transaction((items) => {
+    for (const item of items) stmt.run(item);
+  });
+  insertMany(rows);
+}
+
+function getUserGameSummary(userId) {
+  return db.prepare(`
+    SELECT COUNT(*) AS gamesPlayed, COALESCE(SUM(won), 0) AS wins
+    FROM game_players WHERE user_id = ?
+  `).get(userId);
+}
+
+function getUserRoleBreakdown(userId) {
+  return db.prepare(`
+    SELECT role, COUNT(*) AS played, COALESCE(SUM(won), 0) AS wins
+    FROM game_players WHERE user_id = ?
+    GROUP BY role
+    ORDER BY played DESC, wins DESC
+  `).all(userId);
+}
+
+function getUserGameHistory(userId, limit = 20) {
+  return db.prepare(`
+    SELECT gp.role, gp.team, gp.alive_at_end, gp.won,
+           g.id AS gameId, g.started_at, g.ended_at, g.winner,
+           r.code AS roomCode, r.name AS roomName
+    FROM game_players gp
+    JOIN games g ON g.id = gp.game_id
+    JOIN rooms r ON r.id = gp.room_id
+    WHERE gp.user_id = ?
+    ORDER BY g.id DESC
+    LIMIT ?
+  `).all(userId, limit);
+}
+
 // ---------- Kullanıcı hesapları ----------
 
 function createUser(email, username, passwordHash) {
@@ -241,6 +304,10 @@ module.exports = {
   getGameLogs,
   addChatMessage,
   getChatHistory,
+  addGamePlayers,
+  getUserGameSummary,
+  getUserRoleBreakdown,
+  getUserGameHistory,
   createUser,
   getUserById,
   getUserByEmail,

@@ -110,6 +110,8 @@ Kalıcı olması gereken, "o anki oyunun RAM durumu" olmayan her şey burada:
 | `games` | Başlayan her oyun turu, başlangıç/bitiş zamanı, kazanan taraf |
 | `game_logs` | Gece aksiyonları, oylamalar, ölümler (oyun sonu özeti/geçmiş için) |
 | `chat_messages` | Gündüz/gece/ölüler sohbeti geçmişi |
+| `users` / `sessions` | Hesaplar ve oturum token'ları (bkz. 2.7) |
+| `game_players` | Profil/istatistik sayfası için: BİTEN her oyunda, hesaplı her oyuncunun rolü/takımı/kazanıp kazanmadığı (bkz. 2.9) |
 
 SQLite tek dosyadır (`data/vampirkoyu.db`), kurulum gerektirmez, birkaç
 arkadaşının aynı anda oynadığı bu ölçekte fazlasıyla yeterlidir.
@@ -207,6 +209,17 @@ birbirine teklif (offer) göndermesin diye, `clientToken`'ı alfabetik
 sırada küçük olan taraf teklifi başlatır (`ensureVoicePeer` —
 `public/js/client.js`) — tam "perfect negotiation" desenine gerek kalmadan,
 bu küçük ölçekte (kanal başına birkaç kişi) yeterli ve basit bir çözüm.
+İstemci artık kendi `clientToken`'ını üretmediği (bkz. 2.7) için bu
+karşılaştırma **kendi** clientToken'ını bilmek zorunda; sunucu bunu her
+bağlantıda `session:me` olayıyla bildirir ve istemci `state.clientToken`
+içinde saklar (`server/index.js` → `io.on('connection', ...)`, en başta).
+> ⚠️ **Düzeltilen bir hata:** Hesap sistemi eklenirken (2.7) istemcinin
+> kendi rastgele ürettiği eski `clientToken` değişkeni kaldırılmış ama bu
+> karşılaştırmadaki kullanımı güncellenmemişti — `ensureVoicePeer` tanımsız
+> bir `clientToken`'a erişmeye çalışıp anlık olarak hata fırlatıyor, bu da
+> WebRTC bağlantı kurulumunu daha başlamadan kesiyordu (sesli sohbette
+> "kanal yok" şikayetinin gerçek kök nedeni buydu). `session:me` +
+> `state.clientToken` ile düzeltildi.
 
 **Bas-konuş (push-to-talk):** Mikrofon akışı (`getUserMedia`) her zaman
 açık tutulur, sadece ses parçası (`MediaStreamTrack.enabled`) basılı
@@ -256,6 +269,63 @@ ek bir katmandır, oyunun temel akışı ona bağımlı değildir.
   düşünüldüğünde — küçük bir arkadaş grubu partisi — bu kabul edilebilir
   bir basitleştirme).
 
+### 2.8 Atmosfer/His İyileştirmeleri
+
+Üç küçük, birbirinden bağımsız dokunuş:
+
+- **Ses efektleri (`sfx` — `client.js`):** Dışarıdan bir `.mp3`/`.wav`
+  dosyası indirmek yerine Web Audio API (`OscillatorNode`/gürültü için
+  `AudioBufferSourceNode` + `BiquadFilterNode`) ile anlık sentezlenir —
+  ekstra dosya/lisans/ağırlık derdi yok. Tarayıcıların "kullanıcı
+  etkileşimi olmadan ses çalınamaz" kısıtı yüzünden `AudioContext` ilk
+  `pointerdown`/`keydown` olayında (bir kere) oluşturulur. `localStorage`
+  (`vk_sound`) ile açık/kapalı tercihi kalıcıdır; sağ üstteki 🔊/🔇 ikonu
+  bunu değiştirir. Faz geçişleri `room:state`'teki eski/yeni faz
+  karşılaştırmasıyla (sadece GERÇEK bir değişimde, sayfa ilk yüklenirken
+  değil) tetiklenir; ölüm `day:announcement`/`day:result`'taki `died`
+  alanına, kazanma/kaybetme `game:over`'da `state.roleInfo.team` ile
+  `payload.winner` karşılaştırmasına bağlıdır.
+- **"Kim konuşuyor" göstergesi:** Yeni bir `voice:talking` Socket.io olayı
+  — bas-konuş tuşuna basılı tutulduğunda/bırakıldığında istemci sunucuya
+  bildirir (`setTalking` — `client.js`), sunucu bunu **SADECE o an aynı
+  sohbet/sesli kanalda olan oyunculara** iletir (`setTalkingState` —
+  `gameManager.js`, `resolveChatChannel` ile aynı kanal kuralını kullanır
+  — vampir olmayan biri gece kimin konuştuğunu, dolayısıyla kimin vampir
+  kanalında olduğunu asla öğrenemez). İstemci gelen olayı hem "Oyuncular"
+  listesindeki (`data-nickname` özniteliğiyle eşleşen) satıra hem de sesli
+  sohbet panelindeki (`#voicePeerList`) ilgili satıra bir `.speaking`
+  CSS sınıfı (yeşil parıltı) olarak uygular.
+- **Emoji tepkileri:** Yeni bir `chat:reaction` olayı — yazılı sohbetle
+  AYNI kanal kuralına tabidir (`sendReaction` — `gameManager.js`, sunucu
+  tarafında izin verilen emoji kümesiyle de doğrulanır) ama **kalıcı
+  değildir**, `chat_messages` tablosuna yazılmaz — sadece o an aynı
+  kanaldaki herkese anlık olarak yayınlanır ve istemcide 1.7sn süren bir
+  CSS animasyonuyla (`spawnReaction` — `client.js`) belirip kaybolur.
+
+### 2.9 Profil ve İstatistik (`GET /api/stats/me`, `game_players`)
+
+`players` tablosu odanın ANLIK durumunu tutar (yeni oyunda `role`/`is_alive`
+sıfırlanır — bkz. `resetPlayersForNewGame`), bu yüzden geçmiş istatistik
+için uygun bir kaynak değildir. Bunun yerine her oyun **bittiğinde**
+(`endGame` — `gameManager.js`), o oyunda yer alan ve hesaplı (yani
+`clientToken` `` `u<userId>` `` biçiminde olan) her oyuncu için `role`,
+`team` (`ROLES[role].team`), oyun sonunda hayatta olup olmadığı ve
+kazanıp kazanmadığı tek bir satır olarak `game_players` tablosuna kalıcı
+olarak yazılır (`db.addGamePlayers` — tek bir SQLite transaction'ı
+içinde toplu ekleme). Kazanma hesaplaması: Soytarı asılıp tek başına
+kazandıysa sadece o oyuncu, oyun host tarafından erken bitirildiyse
+(`aborted`) kimse, aksi halde takımı (`team`) kazanan tarafla (`winner`)
+eşleşen herkes kazanmış sayılır.
+
+`server/index.js`'teki `GET /api/stats/me` ucu (mevcut Bearer-token
+doğrulama deseniyle, `/api/auth/logout` ile aynı) bu tablodan üç şey
+döner: toplam oyun/galibiyet özeti, rol bazında oynama/galibiyet dağılımı
+ve son 20 oyunun geçmişi (`games`/`rooms` ile JOIN edilip oda adı/kodu ve
+tarih bilgisiyle zenginleştirilmiş). İstemci tarafında hesap rozetindeki
+"📊 Profil" butonu bu ucu çağırıp `#profileOverlay` içinde (bir `.screen`
+DEĞİL, sabit bir modal overlay — mevcut faz/ekran durum makinesini hiç
+etkilemesin diye) render eder.
+
 ## 3. Veri Akışı Örneği (bir gece turu)
 
 1. Sunucu `GECE` fazına geçer, tüm istemcilere `phase:night` olayı yayınlar.
@@ -297,3 +367,15 @@ ek bir katmandır, oyunun temel akışı ona bağımlı değildir.
   kendini doğrulayan bir JWT'ye kıyasla daha az esnek (örn. token
   içeriğini değiştirip yeniden imzalamak gerekmez) ama iptal etmesi
   (çıkış yap = satırı sil) çok daha basit ve bu ölçekte yeterli.
+- **Web Audio API ile sentezlenen ses efektleri (hazır ses dosyası
+  yerine)**: Hiçbir `.mp3`/`.wav` dosyası eklenmez/indirilmez — bu hem
+  lisans/telif derdini ortadan kaldırır hem de sayfa ağırlığını artırmaz;
+  birkaç osilatör/gürültü düğümüyle "yeterince atmosferik" kısa sesler
+  üretmek, bu ölçekte tam bir ses kütüphanesi eklemekten çok daha basit.
+- **Ayrı bir `game_players` tablosu (var olan `players`'ı genişletmek
+  yerine)**: `players` bilinçli olarak "anlık oda durumu" tutuyor ve her
+  yeni oyunda sıfırlanıyor; geçmiş istatistiği oraya eklemek ya ekstra
+  bir "arşivleme" adımı gerektirirdi ya da anlık durumla geçmişi aynı
+  satırda karıştırırdı. Ayrı, sadece-ekleme (append-only) bir tablo hem
+  daha basit hem de gelecekte `players` şemasını değiştirmekten bağımsız
+  kalır.
