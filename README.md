@@ -50,8 +50,9 @@ internete açtığın anda arkadaşların tarayıcıdan bağlanıp oynayabilir.
 - ✅ **Seç + Onayla akışı** — gece aksiyonu ve gündüz oyu yanlışlıkla tek
   tıkla gönderilmez, "Eminim ✓" ile onaylanır; herkes onaylayınca faz süresi
   dolmadan erken ilerler.
-- 💀 **Görsel efektler** — 3-2-1 rol dağıtım geri sayımı, ölüm efekti, kim
-  oy verdi göstergesi.
+- 💀 **Görsel efektler** — 3-2-1 geri sayımının ardından rolünün ekranın
+  ortasından küçülerek rol kartına "uçtuğu" bir açılış animasyonu, sadece
+  sen öldüğünde çıkan bir ölüm efekti, kim oy verdi göstergesi.
 - 🎙️ **Faz-duyarlı sesli sohbet (bas-konuş)** — mikrofonunu açtığında,
   yazılı sohbetteki aynı kanal mantığıyla (gece vampirlere özel, gündüz/lobi/
   ölüler ortak) otomatik olarak doğru kişilerle eşleşirsin; tarayıcılar
@@ -285,13 +286,19 @@ yanlışlıkla tıklayıp erken oy vermezsin; herkes "Eminim"e basınca o faz
 **Görsel gece/gündüz göstergesi:** Faz kartının başlığında gece 🌙, gündüz
 ☀️ ikonu belirir; hem faz kartının hem de tüm sayfanın rengi buna göre
 değişir — gece koyu, gündüz aynı mor aileden ama daha açık bir ton olur.
-Bu renk geçişi 1 saniyelik yumuşak bir animasyonla olur. Ayrıca her yeni
-oyun başladığında roller dağıtılmadan önce kısa bir 3-2-1 geri sayım
-animasyonu oynar.
+Bu renk geçişi 3 saniyelik yavaş, yumuşak bir animasyonla olur.
 
-**Ölüm efekti:** Biri öldüğünde (gece vampir saldırısıyla ya da gündüz
-asılarak) ekranda kısa süreli bir kafatası 💀 efekti ve "... öldü!" yazısı
-belirir, sonra otomatik kaybolur.
+**Rol açılışı:** Her yeni oyun başladığında roller dağıtılmadan önce kısa
+bir 3-2-1 geri sayım animasyonu oynar; "Başlıyor!" yazısının hemen ardından
+aynı büyük yazı bu sefer **kendi rolünü** gösterir, bir an öyle durur, sonra
+animasyonlu şekilde küçülerek ekranın ortasından rol kartındaki gerçek
+yerine "uçar" — rolünü öğrendiğin an daha belirgin ve tatmin edici olsun diye.
+
+**Ölüm efekti sadece sana özel:** Sen öldüğünde ekranın ortasında kısa
+süreli bir kafatası 💀 efekti ve "Sen öldün!" yazısı belirir, sonra otomatik
+kaybolur. Başka biri öldüğünde bu efekt SENDE çıkmaz (sanki sen ölmüşsün
+gibi hissettirmesin diye) — onun yerine kimin öldüğü, faz duyurusunda
+(ve gündüz oylamasında ayrıca bir bildirimle) düz metin olarak yazar.
 
 **Sohbet daha net:** Oyun ekranında sohbet kutusu sola alındı ve
 büyütüldü; her mesajın solunda kanalına göre renkli bir çizgi (lobi, gündüz,

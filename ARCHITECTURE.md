@@ -136,6 +136,28 @@ Tek sayfalık, framework'süz (vanilla JS) bir arayüz:
   geçirir; @property olmadan CSS custom property'lerinin değişimi tarayıcı
   tarafından animasyonlu geçirilemez — "anlık geçiş" şikayetinin kök nedeni
   buydu.
+- **Rol açılışı animasyonu** (`runCountdown`/`playRoleRevealTransition` —
+  `client.js`): "3, 2, 1, Başlıyor!" dizisi bittikten ~0.7sn sonra, `onDone()`
+  (ekranı oyun ekranına geçiren, `#roleName`'i GERÇEK son konumunda render
+  eden fonksiyon) çağrılır — ama üstünü hâlâ kaplayan geri sayım overlay'i
+  sayesinde bu geçiş görünmez. Sonra aynı büyük geri sayım elemanının
+  metni oyuncunun rolüne değiştirilir, bir an öyle durur, sonra elle
+  (vanilla JS, kütüphanesiz) bir **FLIP** (First-Last-Invert-Play) geçişi
+  uygulanır: `getBoundingClientRect()` ile hem büyük yazının hem hedefin
+  (`#roleName`) o anki ekran konumu/font boyutu ölçülür, aralarındaki
+  fark bir `translate(dx, dy) scale(oran)` `transform`'una çevrilip CSS
+  `transition` ile (0.9sn) canlandırılır, geçiş bitince overlay kapatılıp
+  altındaki gerçek rol kartı ortaya çıkar. Rol bilgisi (`state.roleInfo`)
+  bu noktada zaten gelmiş olur çünkü sunucu `role:assigned` olayını,
+  `room:state` (faz geçişi) yayınından ÖNCE, aynı soket üzerinden gönderir
+  (Socket.io aynı bağlantıda sırayı korur) — bkz. `startGame` — `gameManager.js`.
+- **Ölüm efekti sadece kendine özel** (`showDeathEffect` — `client.js`):
+  fonksiyon `nickname !== state.nickname` olduğunda hemen çıkar, yani
+  büyük/kırmızı tam ekran efekt SADECE ölen kişinin kendi ekranında
+  görünür. Başkasının öldüğü zaten faz duyurusunda (`day:announcement`/
+  `day:result` — ismi içeren düz metin) herkese bildirildiği için bilgi
+  kaybı yok; sadece "sanki ben ölmüşüm gibi" hissettiren o dramatik efekt
+  ölmeyenlere gösterilmiyor.
 
 ### 2.5 İnternete Açma (Cloudflare Tunnel)
 Kendi bilgisayarın genelde doğrudan internetten erişilebilir değildir (ev
