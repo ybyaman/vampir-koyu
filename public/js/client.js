@@ -523,10 +523,19 @@
     else appendChatTo('gameChatLog', msg);
   });
 
-  // ---------- Roller dağıtılırken 3-2-1 geri sayımı ----------
+  // ---------- Roller dağıtılırken 3-2-1 geri sayımı + rol açılışı ----------
+  // "3, 2, 1, Başlıyor!" bittikten sonra aynı büyük yazı bu sefer oyuncunun
+  // ROLÜNÜ gösterir, bir an öyle durur, sonra animasyonlu şekilde küçülerek
+  // ekranın ortasından rol kartındaki (#roleName) gerçek yerine "uçar" —
+  // böylece rolünü öğrenmek daha belirgin/dramatik bir an oluyor.
   function runCountdown(onDone) {
     const overlay = $('countdownOverlay');
     const numberEl = $('countdownNumber');
+    const captionEl = $('countdownCaption');
+    captionEl.textContent = 'Roller dağıtılıyor...';
+    numberEl.style.transition = '';
+    numberEl.style.transform = '';
+    numberEl.style.opacity = '1';
     overlay.hidden = false;
     const seq = ['3', '2', '1', 'Başlıyor!'];
     let i = 0;
@@ -539,10 +548,55 @@
       if (i < seq.length) {
         setTimeout(step, 800);
       } else {
-        setTimeout(() => { overlay.hidden = true; onDone(); }, 700);
+        setTimeout(() => {
+          // Ekranı oyun ekranına geçir (rol kartı #roleName ile birlikte
+          // GERÇEK, son konumunda render edilsin) — hâlâ üstünü kaplayan
+          // bu overlay sayesinde kullanıcı bu geçişi görmez.
+          onDone();
+          playRoleRevealTransition(overlay, numberEl, captionEl);
+        }, 700);
       }
     }
     step();
+  }
+
+  function playRoleRevealTransition(overlay, numberEl, captionEl) {
+    const target = $('roleName');
+    const roleInfo = state.roleInfo;
+    if (!target || !roleInfo) {
+      // Rol bilgisi bir şekilde henüz gelmediyse animasyonu atla, sadece kapat.
+      overlay.hidden = true;
+      return;
+    }
+    captionEl.textContent = 'Rolün:';
+    numberEl.textContent = roleInfo.name;
+    numberEl.classList.remove('pulse');
+    void numberEl.offsetWidth;
+    numberEl.classList.add('pulse');
+
+    // Pulse-in animasyonu (0.8sn) bitip yazı bir an net şekilde görününce,
+    // hedefin (gerçek #roleName) ekrandaki konum/boyutunu ölçüp oraya
+    // doğru küçülerek taşıyan bir FLIP geçişi başlat.
+    setTimeout(() => {
+      const fromRect = numberEl.getBoundingClientRect();
+      const toRect = target.getBoundingClientRect();
+      const dx = (toRect.left + toRect.width / 2) - (fromRect.left + fromRect.width / 2);
+      const dy = (toRect.top + toRect.height / 2) - (fromRect.top + fromRect.height / 2);
+      const fromFontSize = parseFloat(getComputedStyle(numberEl).fontSize);
+      const toFontSize = parseFloat(getComputedStyle(target).fontSize);
+      const scale = toFontSize / fromFontSize;
+
+      numberEl.style.transition = 'transform 0.9s cubic-bezier(0.6, -0.05, 0.15, 1), opacity 0.9s ease';
+      numberEl.style.transform = `translate(${dx}px, ${dy}px) scale(${scale})`;
+      numberEl.style.opacity = '0';
+
+      setTimeout(() => {
+        overlay.hidden = true;
+        numberEl.style.transition = '';
+        numberEl.style.transform = '';
+        numberEl.style.opacity = '1';
+      }, 950);
+    }, 900);
   }
 
   // ---------- Gece/gündüz görsel göstergesi (kart + tüm sayfa teması) ----------
@@ -569,11 +623,16 @@
   }
 
   // ---------- Ölüm efekti ----------
+  // Bu büyük/kırmızı tam ekran efekt SADECE ölen kişi sen isen gösterilir —
+  // başka biri öldüğünde bu efekti görmek, sanki sen ölmüşsün gibi hissettiriyordu.
+  // Başkasının öldüğü zaten faz duyurusunda (phaseAnnouncement) ve/veya
+  // toast'ta ismiyle birlikte düz metin olarak bildiriliyor.
   function showDeathEffect(nickname) {
     if (!nickname) return;
+    if (nickname !== state.nickname) return;
     const overlay = $('deathOverlay');
     const caption = $('deathCaption');
-    caption.textContent = nickname === state.nickname ? `Sen öldün, ${nickname}!` : `${nickname} öldü!`;
+    caption.textContent = `Sen öldün, ${nickname}!`;
     overlay.hidden = false;
     overlay.classList.remove('play');
     void overlay.offsetWidth; // animasyonu yeniden başlatmak için reflow tetikle
