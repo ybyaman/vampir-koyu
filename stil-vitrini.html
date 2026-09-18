@@ -1,0 +1,994 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Vampir Köyü — Stil Vitrini</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+/* =========================================================================
+   0. TEMEL DEĞİŞKENLER (PALET, ÖLÇÜ, TİPOGRAFİ)
+   Tüm renkler burada. Tek yerden değiştirilir.
+   ========================================================================= */
+:root{
+  /* --- Zemin ve yüzeyler --- */
+  --zemin:        #FBF1E4;   /* sıcak kağıt/krem */
+  --kart:         #FFFBF4;   /* karttan bir tık açık */
+  --kart-ust:     #FFFFFF;   /* kart içi vurgulu yüzey */
+
+  /* --- Ana renk: gece moru --- */
+  --ana:          #5C3A7E;
+  --ana-koyu:     #3C2355;   /* 3B gölge + başlık metni */
+  --ana-silik:    #EFE6F6;   /* çok açık mor dolgu */
+
+  /* --- Vurgu: ay ışığı sarısı --- */
+  --vurgu:        #FFC861;
+  --vurgu-koyu:   #D99B2E;
+
+  /* --- Durum renkleri (sadece durum bildirimi için) --- */
+  --iyi:          #57B87C;
+  --iyi-koyu:     #3D8B5A;
+  --kotu:         #E2614F;
+  --kotu-koyu:    #B03D2D;
+
+  /* --- Çizgi, silik metin --- */
+  --cizgi:        #E3D4C0;
+  --cizgi-koyu:   #CDB99F;
+  --silik:        #8A7A93;
+
+  /* --- Ölçü sistemi --- */
+  --r-kucuk:  12px;
+  --r-orta:   18px;
+  --r-buyuk:  26px;
+  --r-hap:    999px;
+  --bosluk:   16px;
+  --derinlik: 5px;            /* 3B butonun kalınlığı */
+  --kenar:    3px;            /* kalın çizgi kalınlığı */
+
+  /* --- Tipografi kademeleri --- */
+  --yazi-dev:    clamp(28px, 6vw, 42px);
+  --yazi-buyuk:  clamp(22px, 4.4vw, 28px);
+  --yazi-orta:   clamp(17px, 2.6vw, 19px);
+  --yazi-govde:  16px;
+  --yazi-kucuk:  13px;
+
+  --gecis: 160ms cubic-bezier(.34,1.56,.64,1);
+}
+
+/* Gece fazı: zemin hafifçe morlaşır ama AÇIK kalır. Siyah ekran yok. */
+body.gece{
+  --zemin:    #EDE3F3;
+  --kart:     #FBF6FE;
+  --kart-ust: #FFFFFF;
+  --cizgi:    #DCCDE8;
+  --cizgi-koyu:#C3AED2;
+}
+
+/* =========================================================================
+   1. SIFIRLAMA VE GÖVDE
+   ========================================================================= */
+*,*::before,*::after{ box-sizing:border-box; }
+html,body{ margin:0; padding:0; }
+body{
+  font-family:'Baloo 2', ui-rounded, 'Segoe UI', system-ui, sans-serif;
+  font-size:var(--yazi-govde);
+  line-height:1.55;
+  color:var(--ana-koyu);
+  background:var(--zemin);
+  background-image:radial-gradient(circle at 12% 8%, rgba(255,200,97,.18) 0 22%, transparent 55%),
+                   radial-gradient(circle at 88% 4%, rgba(92,58,126,.10) 0 20%, transparent 50%);
+  background-attachment:fixed;
+  transition:background-color 500ms ease;
+  overflow-x:hidden;
+  -webkit-font-smoothing:antialiased;
+}
+h1,h2,h3,h4{ margin:0 0 .4em; line-height:1.2; color:var(--ana-koyu); font-weight:800; }
+h1{ font-size:var(--yazi-dev); }
+h2{ font-size:var(--yazi-buyuk); }
+h3{ font-size:var(--yazi-orta); font-weight:700; }
+p{ margin:0 0 .8em; }
+.silik{ color:var(--silik); font-size:var(--yazi-kucuk); }
+.orta{ text-align:center; }
+
+/* Klavye odağı her yerde görünür */
+:focus-visible{
+  outline:3px solid var(--ana);
+  outline-offset:3px;
+  border-radius:6px;
+}
+
+/* =========================================================================
+   2. YERLEŞİM (ÖNCE MOBİL)
+   ========================================================================= */
+.sayfa{ max-width:1080px; margin:0 auto; padding:20px 16px 90px; }
+.bolum{ margin:0 0 42px; }
+.bolum > h2{ display:flex; align-items:center; gap:10px; }
+.bolum-no{
+  display:inline-grid; place-items:center;
+  width:34px; height:34px; flex:0 0 34px;
+  border-radius:var(--r-hap);
+  background:var(--vurgu); color:var(--ana-koyu);
+  font-size:15px; font-weight:800;
+  box-shadow:0 3px 0 var(--vurgu-koyu);
+}
+.izgara{ display:grid; gap:var(--bosluk); grid-template-columns:1fr; }
+/* Izgara/flex çocukları taşmasın (min-width:auto varsayılanı kapatılır) */
+.izgara > *, .oyun-izgara > *, .yan-sutun > *, .hedef-izgara > *, .liste > *{ min-width:0; }
+@media (min-width:640px){
+  .izgara-2{ grid-template-columns:repeat(2,1fr); }
+  .izgara-3{ grid-template-columns:repeat(3,1fr); }
+}
+@media (min-width:900px){
+  .izgara-4{ grid-template-columns:repeat(4,1fr); }
+}
+.satir{ display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
+
+/* =========================================================================
+   3. KART
+   Kalın yumuşak kenarlık + geniş köşe + altta KATI gölge.
+   ========================================================================= */
+.kart{
+  background:var(--kart);
+  border:var(--kenar) solid var(--ana-koyu);
+  border-radius:var(--r-buyuk);
+  box-shadow:0 6px 0 var(--ana-koyu);
+  padding:18px;
+}
+.kart--yumusak{ border-color:var(--cizgi-koyu); box-shadow:0 5px 0 var(--cizgi-koyu); }
+.kart--vurgu{ background:var(--ana-silik); }
+.kart-basligi{
+  display:flex; align-items:center; justify-content:space-between;
+  gap:10px; margin-bottom:12px;
+}
+
+/* =========================================================================
+   4. BUTONLAR — 3B basma hissi
+   Alt kenarda katı gölge, üstte ince parlama. Tıklayınca aşağı iner.
+   ========================================================================= */
+.buton{
+  --b-yuz:   var(--ana);
+  --b-golge: var(--ana-koyu);
+  --b-metin: #fff;
+  display:inline-flex; align-items:center; justify-content:center; gap:8px;
+  min-height:48px; padding:11px 22px;
+  font-family:inherit; font-size:var(--yazi-orta); font-weight:700;
+  color:var(--b-metin); background:var(--b-yuz);
+  border:none; border-radius:var(--r-orta);
+  box-shadow:0 var(--derinlik) 0 var(--b-golge),
+             inset 0 2px 0 rgba(255,255,255,.38);
+  cursor:pointer;
+  transform:translateY(0);
+  transition:transform var(--gecis), box-shadow var(--gecis), filter var(--gecis);
+  -webkit-tap-highlight-color:transparent;
+}
+.buton:hover:not(:disabled){
+  transform:translateY(-2px);
+  box-shadow:0 calc(var(--derinlik) + 2px) 0 var(--b-golge),
+             inset 0 2px 0 rgba(255,255,255,.45);
+  filter:brightness(1.04);
+}
+.buton:active:not(:disabled){
+  transform:translateY(var(--derinlik));
+  box-shadow:0 0 0 var(--b-golge), inset 0 2px 0 rgba(255,255,255,.2);
+}
+.buton:disabled{
+  --b-yuz:#DCD3CA; --b-golge:#BCB1A6; --b-metin:#8C8279;
+  cursor:not-allowed; box-shadow:0 3px 0 var(--b-golge); opacity:.9;
+}
+.buton--olumlu  { --b-yuz:var(--iyi);   --b-golge:var(--iyi-koyu); }
+.buton--tehlike { --b-yuz:var(--kotu);  --b-golge:var(--kotu-koyu); }
+.buton--vurgu   { --b-yuz:var(--vurgu); --b-golge:var(--vurgu-koyu); --b-metin:var(--ana-koyu); }
+.buton--sessiz  { --b-yuz:var(--kart-ust); --b-golge:var(--cizgi-koyu); --b-metin:var(--ana-koyu); }
+.buton--kucuk{ min-height:38px; padding:6px 14px; font-size:var(--yazi-kucuk); --derinlik:4px; border-radius:var(--r-kucuk); }
+.buton--genis{ width:100%; }
+.buton--yuvarlak{ width:48px; padding:0; border-radius:var(--r-hap); }
+
+/* =========================================================================
+   5. ROZET, ETİKET, ANAHTAR
+   ========================================================================= */
+.rozet{
+  display:inline-flex; align-items:center; gap:6px;
+  padding:4px 12px; border-radius:var(--r-hap);
+  font-size:var(--yazi-kucuk); font-weight:700; line-height:1.4;
+  background:var(--ana-silik); color:var(--ana-koyu);
+  border:2px solid transparent;
+}
+.rozet--iyi     { background:#E2F4E8; color:var(--iyi-koyu);  border-color:#BCE4C9; }
+.rozet--kotu    { background:#FBE4E0; color:var(--kotu-koyu); border-color:#F3C4BB; }
+.rozet--vurgu   { background:#FFF1D5; color:#8A5E10;          border-color:#F5D9A0; }
+.rozet--notr    { background:#EFEAE2; color:var(--silik);      border-color:#E0D8CC; }
+.rozet--kontur  { background:transparent; border-color:var(--ana); color:var(--ana); }
+
+.anahtar{ display:inline-flex; align-items:center; gap:10px; cursor:pointer; font-weight:600; }
+.anahtar input{ position:absolute; opacity:0; width:0; height:0; }
+.anahtar .yuva{
+  width:56px; height:32px; border-radius:var(--r-hap);
+  background:#DED5CA; border:2px solid var(--cizgi-koyu);
+  box-shadow:inset 0 2px 4px rgba(0,0,0,.12);
+  position:relative; transition:background var(--gecis), border-color var(--gecis);
+  flex:0 0 auto;
+}
+.anahtar .topuz{
+  position:absolute; top:2px; left:2px; width:24px; height:24px;
+  border-radius:50%; background:#fff;
+  box-shadow:0 2px 0 rgba(0,0,0,.18);
+  transition:transform var(--gecis);
+}
+.anahtar input:checked + .yuva{ background:var(--iyi); border-color:var(--iyi-koyu); }
+.anahtar input:checked + .yuva .topuz{ transform:translateX(24px); }
+.anahtar input:focus-visible + .yuva{ outline:3px solid var(--ana); outline-offset:3px; }
+
+/* =========================================================================
+   6. OYUNCU KARTI
+   Avatar (isimden türeyen renk + baş harf), isim, durum rozeti, oy sayısı.
+   ========================================================================= */
+.oyuncu-karti{
+  display:flex; align-items:center; gap:12px;
+  width:100%; text-align:left;
+  padding:12px; font-family:inherit; font-size:var(--yazi-govde);
+  background:var(--kart-ust);
+  border:var(--kenar) solid var(--cizgi-koyu);
+  border-radius:var(--r-orta);
+  box-shadow:0 4px 0 var(--cizgi-koyu);
+  cursor:pointer; color:inherit;
+  transition:transform var(--gecis), box-shadow var(--gecis), border-color var(--gecis);
+}
+.oyuncu-karti:hover:not(.oyuncu-karti--olu){ transform:translateY(-2px); box-shadow:0 6px 0 var(--cizgi-koyu); }
+.oyuncu-karti:active:not(.oyuncu-karti--olu){ transform:translateY(4px); box-shadow:0 0 0 var(--cizgi-koyu); }
+.oyuncu-karti--secili{
+  border-color:var(--ana); box-shadow:0 4px 0 var(--ana-koyu);
+  background:var(--ana-silik);
+}
+.oyuncu-karti--olu{
+  opacity:.55; filter:grayscale(.7); cursor:not-allowed;
+  border-style:dashed; box-shadow:none; transform:none;
+}
+.oyuncu-karti--olu .avatar::after{
+  content:"✕"; position:absolute; inset:0;
+  display:grid; place-items:center;
+  font-size:26px; font-weight:800; color:var(--kotu-koyu);
+  background:rgba(255,255,255,.55); border-radius:50%;
+}
+.avatar{
+  position:relative; flex:0 0 auto;
+  width:48px; height:48px; border-radius:50%;
+  display:grid; place-items:center;
+  font-size:20px; font-weight:800; color:#fff;
+  border:3px solid rgba(255,255,255,.85);
+  box-shadow:0 3px 0 rgba(60,35,85,.28);
+}
+.avatar--kucuk{ width:34px; height:34px; font-size:15px; border-width:2px; }
+.oyuncu-bilgi{ flex:1 1 auto; min-width:0; }
+.oyuncu-ad{ font-weight:700; font-size:var(--yazi-orta); display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.oyuncu-alt{ display:flex; gap:6px; flex-wrap:wrap; margin-top:2px; }
+.oy-sayaci{
+  flex:0 0 auto; display:grid; place-items:center;
+  min-width:44px; height:44px; padding:0 8px;
+  border-radius:var(--r-kucuk);
+  background:var(--vurgu); color:var(--ana-koyu);
+  border:2px solid var(--vurgu-koyu);
+  font-weight:800; font-size:var(--yazi-orta); line-height:1;
+}
+.oy-sayaci small{ display:block; font-size:10px; font-weight:600; letter-spacing:.04em; }
+.oy-sayaci--bos{ background:transparent; border-style:dashed; border-color:var(--cizgi-koyu); color:var(--silik); }
+
+/* =========================================================================
+   7. ROL KARTI — çevrilebilir
+   ========================================================================= */
+.rol-karti{ perspective:1200px; background:none; border:none; padding:0; width:100%; cursor:pointer; font-family:inherit; }
+.rol-ic{
+  position:relative; width:100%; min-height:190px;
+  transform-style:preserve-3d;
+  transition:transform 620ms cubic-bezier(.4,.9,.3,1.2);
+}
+.rol-karti.acik .rol-ic{ transform:rotateY(180deg); }
+.rol-yuz{
+  position:absolute; inset:0;
+  backface-visibility:hidden; -webkit-backface-visibility:hidden;
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:6px; padding:18px; text-align:center;
+  border:var(--kenar) solid var(--ana-koyu);
+  border-radius:var(--r-buyuk);
+  box-shadow:0 6px 0 var(--ana-koyu);
+}
+.rol-arka{
+  background:var(--ana); color:#fff;
+  background-image:radial-gradient(circle at 30% 20%, rgba(255,255,255,.18) 0 30%, transparent 60%);
+}
+.rol-arka .rol-emoji{ font-size:54px; }
+.rol-arka h3{ color:#fff; }
+.rol-on{
+  transform:rotateY(180deg);
+  background:var(--kart-ust);
+}
+.rol-emoji{ font-size:46px; line-height:1; }
+.rol-adi{ font-size:var(--yazi-buyuk); font-weight:800; margin:0; }
+.rol-aciklama{ font-size:var(--yazi-kucuk); color:var(--silik); margin:0; max-width:34ch; }
+
+/* =========================================================================
+   8. SÜRE GÖSTERGESİ (halka + çubuk)
+   Renk: normal → sarı → kırmızı. Kritikte nabız atar.
+   ========================================================================= */
+.sure{ display:flex; align-items:center; gap:14px; }
+.sure-halkasi{
+  --yuzde:100;
+  --sure-renk:var(--ana);
+  position:relative; flex:0 0 auto;
+  width:76px; height:76px; border-radius:50%;
+  background:conic-gradient(var(--sure-renk) calc(var(--yuzde) * 1%), var(--cizgi) 0);
+  display:grid; place-items:center;
+  transition:background 400ms linear;
+}
+.sure-halkasi::before{
+  content:""; position:absolute; inset:7px;
+  border-radius:50%; background:var(--kart);
+  border:2px solid var(--cizgi);
+}
+.sure-rakam{ position:relative; font-weight:800; font-size:var(--yazi-orta); color:var(--sure-renk); }
+.sure-cubugu{
+  flex:1 1 auto; height:16px; border-radius:var(--r-hap);
+  background:var(--cizgi); border:2px solid var(--cizgi-koyu); overflow:hidden;
+}
+.sure-dolgu{
+  height:100%; width:100%;
+  background:var(--sure-renk, var(--ana));
+  border-radius:var(--r-hap);
+  transition:width 400ms linear, background 400ms linear;
+}
+.sure--uyari   { --sure-renk:var(--vurgu-koyu); }
+.sure--kritik  { --sure-renk:var(--kotu); animation:nabiz 800ms ease-in-out infinite; }
+
+/* =========================================================================
+   9. OYLAMA / GECE AKSİYON PANELİ
+   ========================================================================= */
+.oylama-paneli{ display:flex; flex-direction:column; gap:12px; }
+.panel-baslik{ display:flex; align-items:center; gap:8px; font-weight:800; font-size:var(--yazi-orta); }
+.hedef-izgara{ display:grid; gap:10px; grid-template-columns:1fr; }
+@media (min-width:520px){ .hedef-izgara{ grid-template-columns:repeat(2,1fr); } }
+.duyuru{
+  padding:12px 14px; border-radius:var(--r-orta);
+  background:var(--ana-silik); border:2px dashed var(--ana);
+  font-weight:600; text-align:center;
+}
+.duyuru--iyi { background:#E2F4E8; border-color:var(--iyi);  color:var(--iyi-koyu); }
+.duyuru--kotu{ background:#FBE4E0; border-color:var(--kotu); color:var(--kotu-koyu); }
+
+/* =========================================================================
+   10. SOHBET
+   ========================================================================= */
+.sohbet-kutusu{ display:flex; flex-direction:column; gap:10px; }
+.sohbet-akisi{
+  height:210px; overflow-y:auto;
+  display:flex; flex-direction:column; gap:8px;
+  padding:12px; border-radius:var(--r-orta);
+  background:var(--kart-ust); border:2px solid var(--cizgi);
+}
+.mesaj{ font-size:var(--yazi-govde); }
+.mesaj b{ color:var(--ana); }
+.mesaj--sistem{ color:var(--silik); font-style:italic; font-size:var(--yazi-kucuk); text-align:center; }
+.mesaj--vampir b{ color:var(--kotu-koyu); }
+.sohbet-form{ display:flex; gap:8px; }
+.girdi{
+  flex:1 1 auto; min-width:0; min-height:48px;
+  padding:10px 14px; font-family:inherit; font-size:var(--yazi-govde); color:var(--ana-koyu);
+  background:var(--kart-ust);
+  border:var(--kenar) solid var(--cizgi-koyu); border-radius:var(--r-orta);
+  box-shadow:inset 0 2px 4px rgba(0,0,0,.06);
+}
+.girdi::placeholder{ color:var(--silik); }
+.girdi:focus{ border-color:var(--ana); outline:none; box-shadow:inset 0 2px 4px rgba(0,0,0,.06), 0 0 0 3px var(--ana-silik); }
+
+/* =========================================================================
+   11. FAZ BAŞLIĞI
+   ========================================================================= */
+.faz-serit{
+  display:flex; align-items:center; justify-content:space-between; gap:12px;
+  padding:12px 16px; border-radius:var(--r-buyuk);
+  border:var(--kenar) solid var(--vurgu-koyu); background:#FFF3DA;
+  box-shadow:0 5px 0 var(--vurgu-koyu);
+}
+body.gece .faz-serit{ border-color:var(--ana-koyu); background:var(--ana); color:#fff; box-shadow:0 5px 0 var(--ana-koyu); }
+body.gece .faz-serit .faz-adi, body.gece .faz-serit .tur-no{ color:#fff; }
+.faz-sol{ display:flex; align-items:center; gap:10px; }
+.faz-ikon{ font-size:30px; line-height:1; }
+.faz-adi{ font-weight:800; font-size:var(--yazi-orta); color:var(--ana-koyu); }
+.tur-no{ font-size:var(--yazi-kucuk); color:var(--ana-koyu); opacity:.75; }
+
+/* =========================================================================
+   12. BİLDİRİM BALONU (TOAST) VE KAPLAMA
+   ========================================================================= */
+.bildirim{
+  position:fixed; left:50%; bottom:22px; transform:translateX(-50%) translateY(140%);
+  z-index:60; max-width:min(92vw,420px);
+  display:flex; align-items:center; gap:10px;
+  padding:12px 18px; border-radius:var(--r-hap);
+  background:var(--ana-koyu); color:#fff; font-weight:600;
+  box-shadow:0 6px 0 rgba(0,0,0,.22);
+  transition:transform 320ms cubic-bezier(.34,1.56,.64,1);
+}
+.bildirim.gorunur{ transform:translateX(-50%) translateY(0); }
+
+.kaplama{
+  position:fixed; inset:0; z-index:70;
+  display:grid; place-items:center; padding:20px;
+  background:rgba(60,35,85,.42); backdrop-filter:blur(3px);
+  opacity:0; pointer-events:none; transition:opacity 220ms ease;
+}
+.kaplama.gorunur{ opacity:1; pointer-events:auto; }
+.kaplama-kutu{
+  width:min(440px,94vw); text-align:center; padding:26px;
+  background:var(--kart); border:var(--kenar) solid var(--ana-koyu);
+  border-radius:var(--r-buyuk); box-shadow:0 8px 0 var(--ana-koyu);
+  transform:scale(.8); transition:transform 320ms cubic-bezier(.34,1.56,.64,1);
+}
+.kaplama.gorunur .kaplama-kutu{ transform:scale(1); }
+
+/* Faz geçişi: tam ekran kısa perde */
+.faz-gecis{
+  position:fixed; inset:0; z-index:80;
+  display:grid; place-items:center; gap:10px;
+  background:var(--vurgu); color:var(--ana-koyu);
+  opacity:0; pointer-events:none;
+}
+.faz-gecis.geceye{ background:var(--ana); color:#fff; }
+.faz-gecis.oynat{ animation:perde 1500ms ease forwards; }
+.faz-gecis-ic{ text-align:center; }
+.faz-gecis .buyuk-ikon{ font-size:78px; display:block; animation:zipla 900ms ease; }
+.faz-gecis h2{ color:inherit; margin:0; }
+
+/* Konfeti */
+.konfeti-parca{
+  position:fixed; top:-14px; width:11px; height:16px; z-index:90;
+  border-radius:3px; pointer-events:none;
+  animation:dus linear forwards;
+}
+
+/* =========================================================================
+   13. ANİMASYONLAR
+   ========================================================================= */
+@keyframes yaylan{
+  0%{ opacity:0; transform:translateY(22px) scale(.92); }
+  60%{ opacity:1; transform:translateY(-5px) scale(1.02); }
+  100%{ opacity:1; transform:translateY(0) scale(1); }
+}
+@keyframes salla{
+  0%,100%{ transform:translateX(0); }
+  20%{ transform:translateX(-9px) rotate(-1.5deg); }
+  40%{ transform:translateX(9px) rotate(1.5deg); }
+  60%{ transform:translateX(-6px); }
+  80%{ transform:translateX(6px); }
+}
+@keyframes zipla{
+  0%{ transform:translateY(0) scale(1); }
+  35%{ transform:translateY(-14px) scale(1.09); }
+  70%{ transform:translateY(0) scale(.98); }
+  100%{ transform:translateY(0) scale(1); }
+}
+@keyframes nabiz{
+  0%,100%{ transform:scale(1); }
+  50%{ transform:scale(1.06); }
+}
+@keyframes perde{
+  0%{ opacity:0; }
+  15%{ opacity:1; }
+  80%{ opacity:1; }
+  100%{ opacity:0; }
+}
+@keyframes dus{
+  0%{ transform:translateY(0) rotate(0deg); opacity:1; }
+  100%{ transform:translateY(105vh) rotate(760deg); opacity:.9; }
+}
+.yaylanarak{ animation:yaylan 460ms cubic-bezier(.34,1.56,.64,1) both; }
+.sallaniyor{ animation:salla 460ms ease; }
+.zipliyor{ animation:zipla 520ms ease; }
+
+/* Liste öğeleri sırayla gelsin */
+.sirali > *{ animation:yaylan 460ms cubic-bezier(.34,1.56,.64,1) both; }
+.sirali > *:nth-child(1){ animation-delay:40ms; }
+.sirali > *:nth-child(2){ animation-delay:110ms; }
+.sirali > *:nth-child(3){ animation-delay:180ms; }
+.sirali > *:nth-child(4){ animation-delay:250ms; }
+.sirali > *:nth-child(5){ animation-delay:320ms; }
+.sirali > *:nth-child(6){ animation-delay:390ms; }
+.sirali > *:nth-child(7){ animation-delay:460ms; }
+.sirali > *:nth-child(8){ animation-delay:530ms; }
+
+/* Hareketi azalt tercihi: her şeyi kapat */
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{
+    animation-duration:.001ms !important;
+    animation-iteration-count:1 !important;
+    transition-duration:.001ms !important;
+    scroll-behavior:auto !important;
+  }
+  .rol-karti.acik .rol-ic{ transform:rotateY(180deg); }
+}
+
+/* =========================================================================
+   14. VİTRİNE ÖZEL (gerçek ekranlara taşınmayacak)
+   ========================================================================= */
+.vitrin-ust{
+  position:sticky; top:0; z-index:40;
+  display:flex; align-items:center; justify-content:space-between; gap:12px;
+  flex-wrap:wrap;
+  padding:12px 16px; margin-bottom:22px;
+  background:var(--kart); border-bottom:var(--kenar) solid var(--ana-koyu);
+}
+.marka{ display:flex; align-items:center; gap:9px; font-weight:800; font-size:var(--yazi-orta); }
+.renk-kutusu{
+  border:2px solid var(--cizgi-koyu); border-radius:var(--r-orta);
+  overflow:hidden; background:var(--kart-ust);
+}
+.renk-ornek{ height:62px; }
+.renk-etiket{ padding:8px 10px; font-size:var(--yazi-kucuk); line-height:1.35; }
+.renk-etiket code{ color:var(--silik); font-family:ui-monospace,Menlo,monospace; font-size:12px; }
+.olcek-satir{ display:flex; align-items:baseline; gap:12px; flex-wrap:wrap; border-bottom:1px dashed var(--cizgi); padding:8px 0; }
+.oyun-izgara{ display:grid; gap:var(--bosluk); grid-template-columns:1fr; }
+@media (min-width:900px){
+  .oyun-izgara{ grid-template-columns:1.25fr .9fr; align-items:start; }
+}
+.yan-sutun{ display:grid; gap:var(--bosluk); }
+.liste{ list-style:none; margin:0; padding:0; display:grid; gap:10px; }
+</style>
+</head>
+<body>
+
+<!-- Faz geçiş perdesi -->
+<div class="faz-gecis" id="fazGecis" aria-hidden="true">
+  <div class="faz-gecis-ic">
+    <span class="buyuk-ikon" id="fazGecisIkon">🌙</span>
+    <h2 id="fazGecisYazi">Gece oldu</h2>
+  </div>
+</div>
+
+<!-- Bildirim balonu -->
+<div class="bildirim" id="bildirim" role="status" aria-live="polite"><span id="bildirimMetin"></span></div>
+
+<!-- Tam ekran kaplama -->
+<div class="kaplama" id="kaplama" role="dialog" aria-modal="true" aria-labelledby="kaplamaBaslik">
+  <div class="kaplama-kutu">
+    <div style="font-size:64px;line-height:1">🎉</div>
+    <h2 id="kaplamaBaslik">Köy kazandı!</h2>
+    <p class="silik">Son vampir de asıldı. Köylüler bu geceyi rahat uyuyarak geçirecek.</p>
+    <div class="satir" style="justify-content:center">
+      <button class="buton buton--olumlu" onclick="kaplamaKapat()">Tekrar Oyna</button>
+      <button class="buton buton--sessiz" onclick="kaplamaKapat()">Kapat</button>
+    </div>
+  </div>
+</div>
+
+<header class="vitrin-ust">
+  <div class="marka"><span style="font-size:26px">🧛</span> Vampir Köyü — Stil Vitrini</div>
+  <div class="satir">
+    <label class="anahtar">
+      <input type="checkbox" id="fazAnahtari" onchange="fazDegistir(this.checked)" />
+      <span class="yuva"><span class="topuz"></span></span>
+      <span id="fazAnahtarYazi">Gündüz</span>
+    </label>
+    <button class="buton buton--kucuk buton--sessiz" onclick="bildirimGoster('Örnek bir bildirim balonu 🔔')">Bildirimi Dene</button>
+  </div>
+</header>
+
+<div class="sayfa">
+
+<!-- =================== 1. PALET =================== -->
+<section class="bolum">
+  <h2><span class="bolum-no">1</span> Renk Paleti</h2>
+  <p class="silik">Hepsi <code>:root</code> içinde CSS değişkeni. 2 ana renk (mor + krem zemin) + 1 vurgu + 2 durum rengi. Durum renkleri yalnız durum bildiriminde kullanılır, dekor olarak değil.</p>
+  <div class="izgara izgara-2 izgara-4 sirali">
+    <div class="renk-kutusu"><div class="renk-ornek" style="background:var(--zemin)"></div><div class="renk-etiket"><b>--zemin</b><br><code>#FBF1E4</code><br><span class="silik">Sayfa zemini</span></div></div>
+    <div class="renk-kutusu"><div class="renk-ornek" style="background:var(--kart)"></div><div class="renk-etiket"><b>--kart</b><br><code>#FFFBF4</code><br><span class="silik">Kart yüzeyi</span></div></div>
+    <div class="renk-kutusu"><div class="renk-ornek" style="background:var(--ana)"></div><div class="renk-etiket"><b>--ana</b><br><code>#5C3A7E</code><br><span class="silik">Gece moru — butonlar</span></div></div>
+    <div class="renk-kutusu"><div class="renk-ornek" style="background:var(--ana-koyu)"></div><div class="renk-etiket"><b>--ana-koyu</b><br><code>#3C2355</code><br><span class="silik">Metin + 3B gölge</span></div></div>
+    <div class="renk-kutusu"><div class="renk-ornek" style="background:var(--vurgu)"></div><div class="renk-etiket"><b>--vurgu</b><br><code>#FFC861</code><br><span class="silik">Ay ışığı sarısı</span></div></div>
+    <div class="renk-kutusu"><div class="renk-ornek" style="background:var(--iyi)"></div><div class="renk-etiket"><b>--iyi</b><br><code>#57B87C</code><br><span class="silik">Hayatta / olumlu</span></div></div>
+    <div class="renk-kutusu"><div class="renk-ornek" style="background:var(--kotu)"></div><div class="renk-etiket"><b>--kotu</b><br><code>#E2614F</code><br><span class="silik">Vampir / ölüm</span></div></div>
+    <div class="renk-kutusu"><div class="renk-ornek" style="background:var(--cizgi)"></div><div class="renk-etiket"><b>--cizgi</b><br><code>#E3D4C0</code><br><span class="silik">Kenarlık + silik dolgu</span></div></div>
+  </div>
+</section>
+
+<!-- =================== 2. TİPOGRAFİ =================== -->
+<section class="bolum">
+  <h2><span class="bolum-no">2</span> Tipografi — Baloo 2</h2>
+  <div class="kart kart--yumusak">
+    <div class="olcek-satir"><span style="font-size:var(--yazi-dev);font-weight:800">Vampir Köyü</span><span class="silik">--yazi-dev · 28→42px · 800</span></div>
+    <div class="olcek-satir"><span style="font-size:var(--yazi-buyuk);font-weight:800">Gece oldu, köy uyuyor</span><span class="silik">--yazi-buyuk · 22→28px · 800</span></div>
+    <div class="olcek-satir"><span style="font-size:var(--yazi-orta);font-weight:700">Oylama başladı</span><span class="silik">--yazi-orta · 17→19px · 700</span></div>
+    <div class="olcek-satir"><span style="font-size:var(--yazi-govde)">Gövde metni: her gece vampirler bir kurban seçer, gündüz köy tartışıp oy verir.</span><span class="silik">--yazi-govde · 16px</span></div>
+    <div class="olcek-satir"><span class="silik">Yardımcı metin ve ipuçları burada.</span><span class="silik">--yazi-kucuk · 13px</span></div>
+  </div>
+</section>
+
+<!-- =================== 3. BUTONLAR =================== -->
+<section class="bolum">
+  <h2><span class="bolum-no">3</span> Butonlar</h2>
+  <p class="silik">Alt kenarda katı gölge, üstte ince parlama. Tıklayınca buton gölgesinin üstüne oturur — gerçekten basılmış hissi. Hepsini tıklayıp deneyin.</p>
+  <div class="kart kart--yumusak">
+    <div class="satir" style="margin-bottom:14px">
+      <button class="buton">Oyunu Başlat</button>
+      <button class="buton buton--olumlu">✔ Onayla</button>
+      <button class="buton buton--tehlike">🩸 Isır</button>
+      <button class="buton buton--vurgu">⭐ Oy Ver</button>
+      <button class="buton buton--sessiz">Vazgeç</button>
+      <button class="buton" disabled>Beklemede</button>
+    </div>
+    <div class="satir">
+      <button class="buton buton--kucuk">Küçük</button>
+      <button class="buton buton--kucuk buton--sessiz">Küçük sessiz</button>
+      <button class="buton buton--yuvarlak" title="Sesi aç/kapat">🔊</button>
+      <button class="buton buton--yuvarlak buton--sessiz" title="Profil">📊</button>
+    </div>
+    <div style="margin-top:14px">
+      <button class="buton buton--genis buton--olumlu" onclick="basariGoster(this)">Tam genişlik — tıkla, zıplasın</button>
+    </div>
+    <div style="margin-top:10px">
+      <button class="buton buton--genis buton--tehlike" onclick="hataGoster(this)">Yanlış işlem — tıkla, sallansın</button>
+    </div>
+  </div>
+</section>
+
+<!-- =================== 4. KARTLAR VE ROZETLER =================== -->
+<section class="bolum">
+  <h2><span class="bolum-no">4</span> Kartlar, Rozetler, Anahtarlar</h2>
+  <div class="izgara izgara-2 sirali">
+    <div class="kart">
+      <div class="kart-basligi"><h3>Kalın kart</h3><span class="rozet rozet--vurgu">🏠 Oda: AB3K9</span></div>
+      <p class="silik">Ana kart: koyu mor kenarlık, altta katı gölge. Önemli bloklar için.</p>
+      <div class="satir">
+        <span class="rozet rozet--iyi">💚 Hayatta</span>
+        <span class="rozet rozet--kotu">🩸 Öldü</span>
+        <span class="rozet rozet--vurgu">👑 Oda Sahibi</span>
+        <span class="rozet rozet--notr">📴 Çevrimdışı</span>
+        <span class="rozet rozet--kontur">🗳️ Oy Verdi</span>
+      </div>
+    </div>
+    <div class="kart kart--yumusak">
+      <div class="kart-basligi"><h3>Yumuşak kart</h3></div>
+      <p class="silik">İkincil bloklar için daha sakin kenarlık. Ayarlar, ipuçları, listeler.</p>
+      <div style="display:grid;gap:12px">
+        <label class="anahtar"><input type="checkbox" checked /><span class="yuva"><span class="topuz"></span></span> Ses efektleri</label>
+        <label class="anahtar"><input type="checkbox" /><span class="yuva"><span class="topuz"></span></span> Soytarı rolü aktif</label>
+        <label class="anahtar"><input type="checkbox" checked /><span class="yuva"><span class="topuz"></span></span> Ölüler sohbeti görebilsin</label>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- =================== 5. SÜRE GÖSTERGESİ =================== -->
+<section class="bolum">
+  <h2><span class="bolum-no">5</span> Süre Göstergesi</h2>
+  <p class="silik">Halka boşalır; süre azalınca renk sarıya, sonra kırmızıya döner ve nabız atar. Renk tek başına bilgi taşımaz — rakam da hep görünür.</p>
+  <div class="izgara izgara-3 sirali">
+    <div class="kart kart--yumusak">
+      <div class="sure"><div class="sure-halkasi" style="--yuzde:72"><span class="sure-rakam">43sn</span></div>
+      <div><b>Normal</b><div class="silik">Tartışma sürüyor</div></div></div>
+    </div>
+    <div class="kart kart--yumusak">
+      <div class="sure"><div class="sure-halkasi sure--uyari" style="--yuzde:34"><span class="sure-rakam">18sn</span></div>
+      <div><b>Uyarı</b><div class="silik">Süre azalıyor</div></div></div>
+    </div>
+    <div class="kart kart--yumusak">
+      <div class="sure"><div class="sure-halkasi sure--kritik" style="--yuzde:12"><span class="sure-rakam">6sn</span></div>
+      <div><b>Kritik</b><div class="silik">Son saniyeler</div></div></div>
+    </div>
+  </div>
+  <div class="kart kart--yumusak" style="margin-top:14px">
+    <div class="sure"><span class="silik" style="flex:0 0 auto">Çubuk hâli</span>
+      <div class="sure-cubugu"><div class="sure-dolgu" id="ornekDolgu" style="width:58%"></div></div>
+      <button class="buton buton--kucuk buton--sessiz" onclick="sureCanlandir()">Çalıştır</button>
+    </div>
+  </div>
+</section>
+
+<!-- =================== 6. OYUNCU KARTLARI =================== -->
+<section class="bolum">
+  <h2><span class="bolum-no">6</span> Oyuncu Kartları</h2>
+  <p class="silik">Avatar rengi isimden türetilir (aynı isim → hep aynı renk). Ölü oyuncular soluk, kesik çizgili ve avatarı çarpı işaretli — yani durum sadece renkle değil şekille ve metinle de anlatılıyor.</p>
+  <ul class="liste sirali" id="oyuncuListesi"></ul>
+</section>
+
+<!-- =================== 7. ROL KARTI =================== -->
+<section class="bolum">
+  <h2><span class="bolum-no">7</span> Rol Kartı</h2>
+  <p class="silik">Kartlara tıklayın — çevrilerek açılır. Kapalıyken rol gizli, meraklı gözlere karşı.</p>
+  <div class="izgara izgara-2 izgara-4 sirali" id="rolIzgara"></div>
+</section>
+
+<!-- =================== 8. OYLAMA PANELİ =================== -->
+<section class="bolum">
+  <h2><span class="bolum-no">8</span> Oylama Paneli</h2>
+  <div class="izgara izgara-2">
+    <div class="kart">
+      <div class="oylama-paneli">
+        <div class="panel-baslik">☀️ Kimi asalım?</div>
+        <p class="silik" style="margin:0">Bir oyuncu seç. Oyunu değiştirebilirsin, süre bitene kadar.</p>
+        <div class="hedef-izgara sirali">
+          <button class="oyuncu-karti oyuncu-karti--secili"><span class="avatar avatar--kucuk" style="background:#E2614F">M</span><span class="oyuncu-bilgi"><span class="oyuncu-ad">Mert</span></span><span class="oy-sayaci">3<small>OY</small></span></button>
+          <button class="oyuncu-karti"><span class="avatar avatar--kucuk" style="background:#57B87C">Z</span><span class="oyuncu-bilgi"><span class="oyuncu-ad">Zeynep</span></span><span class="oy-sayaci">1<small>OY</small></span></button>
+          <button class="oyuncu-karti"><span class="avatar avatar--kucuk" style="background:#5C3A7E">E</span><span class="oyuncu-bilgi"><span class="oyuncu-ad">Emre</span></span><span class="oy-sayaci oy-sayaci--bos">0<small>OY</small></span></button>
+          <button class="oyuncu-karti"><span class="avatar avatar--kucuk" style="background:#D99B2E">S</span><span class="oyuncu-bilgi"><span class="oyuncu-ad">Selin</span></span><span class="oy-sayaci oy-sayaci--bos">0<small>OY</small></span></button>
+        </div>
+        <button class="buton buton--genis buton--vurgu" onclick="oylamaBitir()">🗳️ Oyumu Ver</button>
+        <button class="buton buton--genis buton--sessiz buton--kucuk">Çekimser Kal</button>
+      </div>
+    </div>
+    <div class="kart">
+      <div class="oylama-paneli">
+        <div class="panel-baslik">🌙 Gece aksiyonu — Doktor</div>
+        <p class="silik" style="margin:0">Bu gece kimi koruyacaksın? Kendini de seçebilirsin.</p>
+        <div class="hedef-izgara sirali">
+          <button class="oyuncu-karti"><span class="avatar avatar--kucuk" style="background:#5C3A7E">E</span><span class="oyuncu-bilgi"><span class="oyuncu-ad">Emre</span></span></button>
+          <button class="oyuncu-karti oyuncu-karti--secili"><span class="avatar avatar--kucuk" style="background:#57B87C">Z</span><span class="oyuncu-bilgi"><span class="oyuncu-ad">Zeynep</span><span class="oyuncu-alt"><span class="rozet rozet--iyi">🛡️ Korunuyor</span></span></span></button>
+        </div>
+        <div class="duyuru duyuru--iyi">🛡️ Zeynep'i koruyorsun. Onay bekleniyor...</div>
+        <button class="buton buton--genis buton--olumlu">Kararımı Onayla</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- =================== 9. ÖRNEK OYUN EKRANI =================== -->
+<section class="bolum">
+  <h2><span class="bolum-no">9</span> Örnek Oyun Ekranı</h2>
+  <p class="silik">Üstteki gündüz/gece anahtarını çevirip bu bölümü tekrar izleyin.</p>
+
+  <div class="faz-serit" style="margin-bottom:var(--bosluk)">
+    <div class="faz-sol">
+      <span class="faz-ikon" id="ekranFazIkon">☀️</span>
+      <div>
+        <div class="faz-adi" id="ekranFazAdi">Gündüz — Tartışma</div>
+        <div class="tur-no">2. Tur · 5 oyuncu hayatta</div>
+      </div>
+    </div>
+    <div class="sure-halkasi sure--uyari" style="--yuzde:34"><span class="sure-rakam">18sn</span></div>
+  </div>
+
+  <div class="oyun-izgara">
+    <div class="kart">
+      <div class="kart-basligi"><h3>Sohbet</h3><span class="rozet rozet--notr">Köy meydanı</span></div>
+      <div class="sohbet-kutusu">
+        <div class="sohbet-akisi">
+          <div class="mesaj mesaj--sistem">Gece bitti. Mert ölü bulundu. 🩸</div>
+          <div class="mesaj"><b>Zeynep:</b> Dün gece Emre çok sessizdi, bence şüpheli.</div>
+          <div class="mesaj"><b>Emre:</b> Ben doktorum diyemem ama bir şey yaptım, güvenin bana.</div>
+          <div class="mesaj"><b>Selin:</b> Bu klasik vampir cümlesi 😂</div>
+          <div class="mesaj mesaj--sistem">Oylamaya 18 saniye kaldı.</div>
+        </div>
+        <div class="satir">
+          <button class="buton buton--kucuk buton--sessiz">👍</button>
+          <button class="buton buton--kucuk buton--sessiz">😂</button>
+          <button class="buton buton--kucuk buton--sessiz">😱</button>
+          <button class="buton buton--kucuk buton--sessiz">🧛</button>
+          <button class="buton buton--kucuk buton--sessiz">🤔</button>
+        </div>
+        <form class="sohbet-form" onsubmit="event.preventDefault(); bildirimGoster('Mesaj gönderildi ✉️');">
+          <input class="girdi" type="text" placeholder="Mesaj yaz..." aria-label="Mesaj yaz" />
+          <button class="buton" type="submit">Gönder</button>
+        </form>
+      </div>
+    </div>
+
+    <div class="yan-sutun">
+      <div class="kart kart--vurgu">
+        <div class="kart-basligi"><h3>Rolün</h3><span class="rozet rozet--iyi">Köy takımı</span></div>
+        <div class="satir" style="flex-wrap:nowrap">
+          <span style="font-size:40px">💉</span>
+          <div>
+            <div class="rol-adi" style="font-size:var(--yazi-orta)">Doktor</div>
+            <p class="rol-aciklama" style="margin:0">Her gece bir oyuncuyu koru; o kişi vampir saldırısından kurtulur.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="kart">
+        <div class="kart-basligi"><h3>Oyuncular</h3><span class="rozet rozet--kontur">5 / 6</span></div>
+        <ul class="liste sirali">
+          <li><div class="oyuncu-karti" style="cursor:default"><span class="avatar" style="background:#57B87C">Z</span><span class="oyuncu-bilgi"><span class="oyuncu-ad">Zeynep</span><span class="oyuncu-alt"><span class="rozet rozet--iyi">💚 Hayatta</span><span class="rozet rozet--kontur">🗳️ Oy verdi</span></span></span><span class="oy-sayaci">2<small>OY</small></span></div></li>
+          <li><div class="oyuncu-karti" style="cursor:default"><span class="avatar" style="background:#5C3A7E">E</span><span class="oyuncu-bilgi"><span class="oyuncu-ad">Emre</span><span class="oyuncu-alt"><span class="rozet rozet--iyi">💚 Hayatta</span><span class="rozet rozet--vurgu">👑 Oda sahibi</span></span></span><span class="oy-sayaci oy-sayaci--bos">0<small>OY</small></span></div></li>
+          <li><div class="oyuncu-karti oyuncu-karti--olu" style="cursor:default"><span class="avatar" style="background:#E2614F">M</span><span class="oyuncu-bilgi"><span class="oyuncu-ad">Mert</span><span class="oyuncu-alt"><span class="rozet rozet--kotu">🩸 Öldü — 2. gece</span></span></span></div></li>
+        </ul>
+      </div>
+
+      <div class="kart">
+        <div class="duyuru">☀️ Oylama 18 saniye sonra başlıyor</div>
+        <button class="buton buton--genis buton--vurgu" onclick="kutlamaYap()">🗳️ Oylamaya Geç</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- =================== 10. TUR SONU / OYUN SONU =================== -->
+<section class="bolum">
+  <h2><span class="bolum-no">10</span> Tur Sonu ve Oyun Sonu</h2>
+  <div class="izgara izgara-2">
+    <div class="kart">
+      <div class="kart-basligi"><h3>2. Tur Özeti</h3><span class="rozet rozet--notr">Gece 2</span></div>
+      <div class="duyuru duyuru--kotu">🩸 Mert gece vampirlere kurban gitti.</div>
+      <div class="duyuru duyuru--iyi" style="margin-top:10px">🛡️ Zeynep korunduğu için saldırıdan kurtuldu.</div>
+      <p class="silik" style="margin-top:12px">Köyde 5 kişi kaldı. Gündüz başlıyor.</p>
+    </div>
+    <div class="kart orta">
+      <div style="font-size:60px;line-height:1">🎉</div>
+      <h3>Köy Kazandı!</h3>
+      <p class="silik">Son vampir 4. turda asıldı.</p>
+      <div class="satir" style="justify-content:center;margin-top:8px">
+        <button class="buton buton--olumlu" onclick="kutlamaYap()">Kutlamayı Gör</button>
+        <button class="buton buton--sessiz" onclick="kaplamaAc()">Sonuç Penceresi</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- =================== 11. FAZ GEÇİŞİ =================== -->
+<section class="bolum">
+  <h2><span class="bolum-no">11</span> Faz Geçişi ve Kutlama</h2>
+  <div class="kart kart--yumusak">
+    <div class="satir">
+      <button class="buton" onclick="fazGecisOynat('gece')">🌙 Gece Perdesi</button>
+      <button class="buton buton--vurgu" onclick="fazGecisOynat('gunduz')">☀️ Gündüz Perdesi</button>
+      <button class="buton buton--olumlu" onclick="kutlamaYap()">🎊 Konfeti</button>
+      <button class="buton buton--sessiz" onclick="kaplamaAc()">Tam Ekran Pencere</button>
+    </div>
+    <p class="silik" style="margin:12px 0 0">İşletim sisteminde "hareketi azalt" açıksa bütün animasyonlar otomatik kapanır.</p>
+  </div>
+</section>
+
+</div>
+
+<script>
+/* ===== Örnek veriler ===== */
+const OYUNCULAR = [
+  { ad:'Zeynep',  durum:'hayatta', oy:3, etiket:'👑 Oda sahibi' },
+  { ad:'Emre',    durum:'hayatta', oy:1, etiket:'🗳️ Oy verdi' },
+  { ad:'Selin',   durum:'hayatta', oy:0, etiket:null },
+  { ad:'Burak',   durum:'cevrimdisi', oy:0, etiket:'📴 Bağlantı koptu' },
+  { ad:'Mert',    durum:'olu', oy:0, etiket:'🩸 Öldü — 2. gece' },
+];
+
+const ROLLER = [
+  { ad:'Köylü',   emoji:'🧑‍🌾', desc:'Özel yeteneğin yok. Gündüz tartışıp doğru kişiyi asarak vampirleri bul.' },
+  { ad:'Vampir',  emoji:'🧛',   desc:'Her gece diğer vampirlerle bir kurban seçersin. Kimliğini gizli tut.' },
+  { ad:'Doktor',  emoji:'💉',   desc:'Her gece bir oyuncuyu koru; o kişi saldırıdan kurtulur.' },
+  { ad:'Soytarı', emoji:'🤡',   desc:'Amacın asılmak! Gündüz oylamasıyla asılırsan tek başına kazanırsın.' },
+];
+
+/* İsimden sabit avatar rengi üret */
+const AVATAR_RENKLERI = ['#5C3A7E','#57B87C','#E2614F','#D99B2E','#3F7FB5','#B65A9B','#4FA5A0','#C97B3A'];
+function avatarRengi(ad){
+  let t = 0;
+  for (let i = 0; i < ad.length; i++) t = (t * 31 + ad.charCodeAt(i)) % 9973;
+  return AVATAR_RENKLERI[t % AVATAR_RENKLERI.length];
+}
+
+/* ===== Oyuncu listesini bas ===== */
+const listeEl = document.getElementById('oyuncuListesi');
+OYUNCULAR.forEach(o => {
+  const olu = o.durum === 'olu';
+  const li = document.createElement('li');
+  const durumRozet = olu
+    ? '<span class="rozet rozet--kotu">🩸 Öldü</span>'
+    : (o.durum === 'cevrimdisi'
+        ? '<span class="rozet rozet--notr">📴 Çevrimdışı</span>'
+        : '<span class="rozet rozet--iyi">💚 Hayatta</span>');
+  const ekEtiket = o.etiket && !olu ? `<span class="rozet rozet--kontur">${o.etiket}</span>` : '';
+  const oyKutusu = olu ? '' :
+    `<span class="oy-sayaci ${o.oy ? '' : 'oy-sayaci--bos'}">${o.oy}<small>OY</small></span>`;
+  li.innerHTML =
+    `<button class="oyuncu-karti ${olu ? 'oyuncu-karti--olu' : ''}" ${olu ? 'disabled' : ''}>
+       <span class="avatar" style="background:${avatarRengi(o.ad)}">${o.ad[0]}</span>
+       <span class="oyuncu-bilgi">
+         <span class="oyuncu-ad">${o.ad}</span>
+         <span class="oyuncu-alt">${durumRozet}${ekEtiket}</span>
+       </span>
+       ${oyKutusu}
+     </button>`;
+  const btn = li.querySelector('button');
+  if (!olu) btn.addEventListener('click', () => {
+    document.querySelectorAll('#oyuncuListesi .oyuncu-karti').forEach(b => b.classList.remove('oyuncu-karti--secili'));
+    btn.classList.add('oyuncu-karti--secili');
+    bildirimGoster(`${o.ad} seçildi`);
+  });
+  listeEl.appendChild(li);
+});
+
+/* ===== Rol kartlarını bas ===== */
+const rolEl = document.getElementById('rolIzgara');
+ROLLER.forEach(r => {
+  const d = document.createElement('button');
+  d.className = 'rol-karti';
+  d.setAttribute('aria-label', r.ad + ' rol kartı — açmak için tıkla');
+  d.innerHTML =
+    `<div class="rol-ic">
+       <div class="rol-yuz rol-arka"><span class="rol-emoji">❔</span><h3>Rolün</h3><p class="rol-aciklama" style="color:rgba(255,255,255,.85)">Görmek için tıkla</p></div>
+       <div class="rol-yuz rol-on"><span class="rol-emoji">${r.emoji}</span><h3 class="rol-adi">${r.ad}</h3><p class="rol-aciklama">${r.desc}</p></div>
+     </div>`;
+  d.addEventListener('click', () => d.classList.toggle('acik'));
+  rolEl.appendChild(d);
+});
+
+/* ===== Faz değiştirme ===== */
+function fazDegistir(geceMi){
+  document.body.classList.toggle('gece', geceMi);
+  document.getElementById('fazAnahtarYazi').textContent = geceMi ? 'Gece' : 'Gündüz';
+  document.getElementById('ekranFazIkon').textContent = geceMi ? '🌙' : '☀️';
+  document.getElementById('ekranFazAdi').textContent = geceMi ? 'Gece — Vampirler avda' : 'Gündüz — Tartışma';
+  fazGecisOynat(geceMi ? 'gece' : 'gunduz');
+}
+
+function fazGecisOynat(faz){
+  const el = document.getElementById('fazGecis');
+  el.classList.toggle('geceye', faz === 'gece');
+  document.getElementById('fazGecisIkon').textContent = faz === 'gece' ? '🌙' : '☀️';
+  document.getElementById('fazGecisYazi').textContent = faz === 'gece' ? 'Gece oldu' : 'Gündüz oldu';
+  el.classList.remove('oynat');
+  void el.offsetWidth;
+  el.classList.add('oynat');
+}
+
+/* ===== Bildirim ===== */
+let bildirimZaman;
+function bildirimGoster(metin){
+  const el = document.getElementById('bildirim');
+  document.getElementById('bildirimMetin').textContent = metin;
+  el.classList.add('gorunur');
+  clearTimeout(bildirimZaman);
+  bildirimZaman = setTimeout(() => el.classList.remove('gorunur'), 2600);
+}
+
+/* ===== Kaplama ===== */
+function kaplamaAc(){ document.getElementById('kaplama').classList.add('gorunur'); }
+function kaplamaKapat(){ document.getElementById('kaplama').classList.remove('gorunur'); }
+document.addEventListener('keydown', e => { if (e.key === 'Escape') kaplamaKapat(); });
+
+/* ===== Geri bildirim animasyonları ===== */
+function hataGoster(el){
+  el.classList.remove('sallaniyor'); void el.offsetWidth; el.classList.add('sallaniyor');
+  bildirimGoster('Bu oyuncuya oy veremezsin ⛔');
+}
+function basariGoster(el){
+  el.classList.remove('zipliyor'); void el.offsetWidth; el.classList.add('zipliyor');
+  bildirimGoster('Kaydedildi ✅');
+}
+function oylamaBitir(){
+  bildirimGoster('Oyun verildi: Mert 🗳️');
+  kutlamaYap();
+}
+
+/* ===== Konfeti ===== */
+function kutlamaYap(){
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) { bildirimGoster('🎉 Kutlama!'); return; }
+  const renkler = ['#FFC861','#5C3A7E','#57B87C','#E2614F','#D99B2E'];
+  for (let i = 0; i < 60; i++){
+    const p = document.createElement('div');
+    p.className = 'konfeti-parca';
+    p.style.left = Math.random() * 100 + 'vw';
+    p.style.background = renkler[i % renkler.length];
+    p.style.animationDuration = (1.7 + Math.random() * 1.4) + 's';
+    p.style.animationDelay = (Math.random() * .45) + 's';
+    document.body.appendChild(p);
+    setTimeout(() => p.remove(), 3600);
+  }
+}
+
+/* ===== Süre çubuğu demosu ===== */
+let sureTimer;
+function sureCanlandir(){
+  clearInterval(sureTimer);
+  const dolgu = document.getElementById('ornekDolgu');
+  let yuzde = 100;
+  dolgu.style.width = '100%';
+  dolgu.parentElement.classList.remove('sure--uyari','sure--kritik');
+  sureTimer = setInterval(() => {
+    yuzde -= 2;
+    dolgu.style.width = Math.max(0, yuzde) + '%';
+    const kap = dolgu.parentElement;
+    kap.classList.toggle('sure--uyari', yuzde <= 40 && yuzde > 18);
+    kap.classList.toggle('sure--kritik', yuzde <= 18);
+    if (yuzde <= 0){ clearInterval(sureTimer); bildirimGoster('Süre doldu! ⏰'); }
+  }, 90);
+}
+</script>
+</body>
+</html>

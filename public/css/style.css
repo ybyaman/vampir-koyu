@@ -1,43 +1,118 @@
+/* =========================================================================
+   VAMPİR KÖYÜ — TASARIM SİSTEMİ
+   Cartoon, sıcak, açık temalı. Gece fazında bile ekran açık kalır.
+
+   İÇİNDEKİLER
+     0.  Palet ve ölçü değişkenleri
+     1.  Gece / gündüz teması
+     2.  Sıfırlama ve gövde
+     3.  Üst şerit (topbar) ve rozetler
+     4.  Butonlar (3B)
+     5.  Form öğeleri
+     6.  Yerleşim, ekranlar, kartlar
+     7.  Sekmeler
+     8.  Oyuncu listesi ve etiketler
+     9.  Sohbet
+     10. Oyun ekranı ızgarası
+     11. Rol kartı
+     12. Faz başlığı ve süre
+     13. Hedef seçme / oylama
+     14. Tablolar
+     15. Bildirim (toast)
+     16. Geri sayım perdesi
+     17. Faz geçiş perdesi
+     18. Ölüm ve son söz efektleri
+     19. Sesli sohbet paneli
+     20. Emoji tepkileri
+     21. Profil penceresi
+     22. Animasyonlar
+     23. Hareketi azalt (erişilebilirlik)
+   ========================================================================= */
+
+/* =========================================================================
+   0. PALET VE ÖLÇÜ DEĞİŞKENLERİ
+   Tüm renkler burada. Tek yerden değiştirilir.
+   ========================================================================= */
 :root {
-  --bg: #14101c;
-  --bg-glow: #221933;
-  --panel: #1f1930;
-  --panel-2: #2a2240;
-  --text: #f1ecff;
-  --muted: #a99fc9;
-  --accent: #b4213c;
-  --accent-2: #7c3aed;
-  --good: #2fbf71;
-  --border: #3a3155;
-  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  /* --- Zemin ve yüzeyler (gündüz varsayılanı) --- */
+  --zemin:        #FBF1E4;   /* sıcak kağıt/krem */
+  --kart:         #FFFBF4;   /* kart yüzeyi, zeminden bir tık açık */
+  --kart-ust:     #FFFFFF;   /* kart içi vurgulu yüzey */
+
+  /* --- Ana renk: gece moru --- */
+  --ana:          #5C3A7E;
+  --ana-koyu:     #3C2355;   /* metin + 3B gölge */
+  --ana-silik:    #EFE6F6;
+
+  /* --- Vurgu: ay ışığı sarısı --- */
+  --vurgu:        #FFC861;
+  --vurgu-koyu:   #D99B2E;
+
+  /* --- Durum renkleri (yalnızca durum bildirimi için) --- */
+  --iyi:          #57B87C;
+  --iyi-koyu:     #3D8B5A;
+  --kotu:         #E2614F;
+  --kotu-koyu:    #B03D2D;
+
+  /* --- Çizgi ve silik metin --- */
+  --cizgi:        #E3D4C0;
+  --cizgi-koyu:   #CDB99F;
+  --silik:        #8A7A93;
+
+  /* --- Ölçü sistemi --- */
+  --r-kucuk:  12px;
+  --r-orta:   18px;
+  --r-buyuk:  26px;
+  --bosluk:   16px;
+  --derinlik: 5px;           /* 3B butonun kalınlığı */
+  --kenar:    3px;           /* kalın çizgi kalınlığı */
+
+  /* --- Tipografi kademeleri --- */
+  --yazi-dev:    clamp(28px, 6vw, 42px);
+  --yazi-buyuk:  clamp(22px, 4.4vw, 28px);
+  --yazi-orta:   clamp(17px, 2.6vw, 19px);
+  --yazi-govde:  16px;
+  --yazi-kucuk:  13px;
+
+  --gecis: 160ms cubic-bezier(.34, 1.56, .64, 1);
+
+  font-family: 'Baloo 2', ui-rounded, 'Segoe UI', system-ui, -apple-system, sans-serif;
 }
 
-/* Gece <-> gündüz temasında değişen renkleri @property ile "renk" tipinde
-   kayıtlı hale getiriyoruz — bu sayede tarayıcı, sadece bu değişkenleri
-   kullanan gradient/arka plan/kenarlık gibi TÜM değerleri (aşağıdaki body
-   transition'ı sayesinde) otomatik olarak, her elemana ayrı ayrı transition
-   tanımlamaya gerek kalmadan, yumuşakça birbirine geçirir. (Kayıtsız bir CSS
-   değişkeni değiştiğinde tarayıcı onu asla animasyonlu geçiremez — burada
-   "anlık geçiş" şikayetinin asıl sebebi buydu.) */
-@property --bg { syntax: '<color>'; inherits: true; initial-value: #14101c; }
-@property --bg-glow { syntax: '<color>'; inherits: true; initial-value: #221933; }
-@property --panel { syntax: '<color>'; inherits: true; initial-value: #1f1930; }
-@property --panel-2 { syntax: '<color>'; inherits: true; initial-value: #2a2240; }
-@property --muted { syntax: '<color>'; inherits: true; initial-value: #a99fc9; }
-@property --border { syntax: '<color>'; inherits: true; initial-value: #3a3155; }
+/* Gece <-> gündüz geçişinde değişen renkleri @property ile "renk" tipinde
+   kayıtlı hale getiriyoruz. Kayıtsız bir CSS değişkeni değiştiğinde tarayıcı
+   onu asla animasyonlu geçiremez, anında zıplar. Kayıtlı olunca aşağıdaki
+   tek body transition'ı bu değişkenleri kullanan TÜM kartları, kenarlıkları
+   ve zeminleri birlikte yumuşakça geçirir. */
+@property --zemin     { syntax: '<color>'; inherits: true; initial-value: #FBF1E4; }
+@property --kart      { syntax: '<color>'; inherits: true; initial-value: #FFFBF4; }
+@property --kart-ust  { syntax: '<color>'; inherits: true; initial-value: #FFFFFF; }
+@property --ana-silik { syntax: '<color>'; inherits: true; initial-value: #EFE6F6; }
+@property --cizgi     { syntax: '<color>'; inherits: true; initial-value: #E3D4C0; }
+@property --cizgi-koyu{ syntax: '<color>'; inherits: true; initial-value: #CDB99F; }
 
-/* Gündüz teması: aynı mor aile, sadece belirgin şekilde açık tonlar.
-   Gece fazında body'de bu sınıf yok, varsayılan (koyu) :root paleti geçerli. */
-body.theme-day {
-  --bg: #362a5c;
-  --bg-glow: #493a7a;
-  --panel: #423468;
-  --panel-2: #51417e;
-  --muted: #cabdf0;
-  --border: #6a5896;
+/* =========================================================================
+   1. GECE TEMASI
+   Siyaha geçmez — krem zemin açık lavantaya kayar, okunaklılık korunur.
+   Gündüzde ve oyun dışı ekranlarda (giriş, lobi) bu sınıf yoktur.
+   ========================================================================= */
+body.theme-night {
+  /* Gecede sıcak sarı parıltı geri çekilir, mor öne çıkar */
+  background-image:
+    radial-gradient(circle at 12% 6%, rgba(255, 200, 97, .10) 0 22%, transparent 55%),
+    radial-gradient(circle at 88% 3%, rgba(92, 58, 126, .16) 0 20%, transparent 50%);
+  --zemin:      #EDE3F3;
+  --kart:       #FBF6FE;
+  --kart-ust:   #FFFFFF;
+  --ana-silik:  #E6DAF1;
+  --cizgi:      #DCCDE8;
+  --cizgi-koyu: #C3AED2;
 }
 
-* { box-sizing: border-box; }
+/* =========================================================================
+   2. SIFIRLAMA VE GÖVDE
+   ========================================================================= */
+*, *::before, *::after { box-sizing: border-box; }
 
 /* HTML'deki "hidden" özelliğinin, altta display değeri veren başka bir
    kuralla (örn. .room-badge'in display:flex'i) ezilmesini önler. */
@@ -45,227 +120,503 @@ body.theme-day {
 
 body {
   margin: 0;
-  background: radial-gradient(circle at top, var(--bg-glow), var(--bg) 60%);
-  color: var(--text);
   min-height: 100vh;
-  /* Gece/gündüz geçişi burada, TEK bir yerde, yavaş (3sn) ve yumuşak
-     olsun diye tanımlı — yukarıdaki @property sayesinde bu değişkenleri
-     kullanan tüm kartlar/panel arka planları/kenarlıklar da otomatik
-     olarak aynı hızda birlikte geçiş yapar. */
-  transition: background 3s ease, --bg 3s ease, --bg-glow 3s ease,
-    --panel 3s ease, --panel-2 3s ease, --muted 3s ease, --border 3s ease;
+  font-size: var(--yazi-govde);
+  line-height: 1.55;
+  color: var(--ana-koyu);
+  background-color: var(--zemin);
+  background-image:
+    radial-gradient(circle at 12% 6%, rgba(255, 200, 97, .20) 0 22%, transparent 55%),
+    radial-gradient(circle at 88% 3%, rgba(92, 58, 126, .10) 0 20%, transparent 50%);
+  background-attachment: fixed;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  /* Gece/gündüz geçişi TEK yerde tanımlı; @property sayesinde bu
+     değişkenleri kullanan her şey aynı hızda birlikte geçiş yapar. */
+  transition:
+    background-color 1200ms ease,
+    --zemin 1200ms ease, --kart 1200ms ease, --kart-ust 1200ms ease,
+    --ana-silik 1200ms ease, --cizgi 1200ms ease, --cizgi-koyu 1200ms ease;
 }
 
+h1, h2, h3, h4 { margin: 0 0 .4em; line-height: 1.2; color: var(--ana-koyu); font-weight: 800; }
+h1 { font-size: var(--yazi-dev); }
+h2 { font-size: var(--yazi-buyuk); }
+h3 { font-size: var(--yazi-orta); font-weight: 700; }
+p  { margin: 0 0 .8em; }
+
+.muted { color: var(--silik); font-size: var(--yazi-kucuk); }
+.error { color: var(--kotu-koyu); font-size: var(--yazi-kucuk); font-weight: 700; }
+
+/* Klavye odağı her yerde görünür */
+:focus-visible {
+  outline: 3px solid var(--ana);
+  outline-offset: 3px;
+  border-radius: 6px;
+}
+
+/* =========================================================================
+   3. ÜST ŞERİT VE ROZETLER
+   ========================================================================= */
 .topbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 24px;
-  border-bottom: 1px solid var(--border);
   flex-wrap: wrap;
   gap: 10px;
+  padding: 12px 20px;
+  background: var(--kart);
+  border-bottom: var(--kenar) solid var(--ana-koyu);
 }
 
-.brand { font-size: 1.3rem; font-weight: 700; }
+.brand { display: flex; align-items: center; gap: 8px; font-size: var(--yazi-orta); font-weight: 800; }
 
-.topbar-right {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-}
+.topbar-right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 
 .room-badge,
 .account-badge {
-  background: var(--panel-2);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 6px 12px;
-  font-size: 0.9rem;
   display: flex;
   align-items: center;
   gap: 10px;
+  padding: 6px 8px 6px 14px;
+  font-size: var(--yazi-kucuk);
+  font-weight: 700;
+  color: var(--ana-koyu);
+  background: var(--ana-silik);
+  border: 2px solid var(--ana);
+  border-radius: 999px;
 }
-.room-badge span { font-weight: 700; letter-spacing: 2px; color: #ffd166; }
-.account-badge span { font-weight: 600; color: var(--text); }
-.account-badge button { padding: 4px 10px; font-size: 0.8rem; }
+.room-badge span { letter-spacing: 2px; font-weight: 800; color: var(--ana); }
+.account-badge span { font-weight: 700; }
 
+/* =========================================================================
+   4. BUTONLAR — 3B basma hissi
+   Alt kenarda katı gölge, üstte ince parlama. Tıklayınca gölgesinin üstüne
+   oturur: gerçekten basılmış hissi verir.
+   ========================================================================= */
 button {
+  --b-yuz:   var(--kart-ust);
+  --b-golge: var(--cizgi-koyu);
+  --b-metin: var(--ana-koyu);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 9px 18px;
+  font-family: inherit;
+  font-size: var(--yazi-govde);
+  font-weight: 700;
+  color: var(--b-metin);
+  background: var(--b-yuz);
+  border: none;
+  border-radius: var(--r-orta);
+  box-shadow: 0 var(--derinlik) 0 var(--b-golge), inset 0 2px 0 rgba(255,255,255,.38);
   cursor: pointer;
-  border: none;
-  border-radius: 8px;
-  padding: 8px 14px;
-  font-size: 0.9rem;
-  background: var(--panel-2);
-  color: var(--text);
-  border: 1px solid var(--border);
+  transform: translateY(0);
+  transition: transform var(--gecis), box-shadow var(--gecis), filter var(--gecis);
+  -webkit-tap-highlight-color: transparent;
 }
-button:hover { background: #362c52; }
-button.primary {
-  background: linear-gradient(135deg, var(--accent), var(--accent-2));
-  border: none;
-  font-weight: 600;
+button:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 calc(var(--derinlik) + 2px) 0 var(--b-golge), inset 0 2px 0 rgba(255,255,255,.45);
+  filter: brightness(1.04);
 }
-button.primary:hover { filter: brightness(1.1); }
-button.danger {
-  background: transparent;
-  border: 1px solid var(--accent);
-  color: #ff9baa;
-  margin-bottom: 10px;
+button:active:not(:disabled) {
+  transform: translateY(var(--derinlik));
+  box-shadow: 0 0 0 var(--b-golge), inset 0 2px 0 rgba(255,255,255,.2);
 }
-button.danger:hover { background: rgba(180,33,60,0.25); }
-button:disabled { opacity: 0.5; cursor: not-allowed; }
+button:disabled {
+  --b-yuz: #DCD3CA; --b-golge: #BCB1A6; --b-metin: #8C8279;
+  cursor: not-allowed;
+  box-shadow: 0 3px 0 var(--b-golge);
+}
 
+button.primary { --b-yuz: var(--ana);   --b-golge: var(--ana-koyu);   --b-metin: #fff; font-size: var(--yazi-orta); }
+button.danger  { --b-yuz: var(--kotu);  --b-golge: var(--kotu-koyu);  --b-metin: #fff; margin-bottom: 10px; }
+button.accent  { --b-yuz: var(--vurgu); --b-golge: var(--vurgu-koyu); --b-metin: var(--ana-koyu); }
+
+/* Üst şeritteki küçük butonlar */
+.account-badge button,
+.room-badge button { min-height: 32px; padding: 3px 12px; font-size: 12px; --derinlik: 3px; border-radius: 999px; }
+
+.icon-btn {
+  min-height: 42px;
+  width: 42px;
+  padding: 0;
+  font-size: 18px;
+  line-height: 1;
+  border-radius: 999px;
+}
+
+/* =========================================================================
+   5. FORM ÖĞELERİ
+   ========================================================================= */
 input[type="text"],
 input[type="email"],
 input[type="password"] {
   width: 100%;
-  padding: 10px 12px;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  background: var(--panel-2);
-  color: var(--text);
+  min-height: 48px;
   margin: 6px 0 14px;
-  font-size: 1rem;
+  padding: 10px 14px;
+  font-family: inherit;
+  font-size: var(--yazi-govde);
+  color: var(--ana-koyu);
+  background: var(--kart-ust);
+  border: var(--kenar) solid var(--cizgi-koyu);
+  border-radius: var(--r-orta);
+  box-shadow: inset 0 2px 4px rgba(0,0,0,.06);
+}
+input::placeholder { color: var(--silik); }
+input:focus {
+  border-color: var(--ana);
+  outline: none;
+  box-shadow: inset 0 2px 4px rgba(0,0,0,.06), 0 0 0 3px var(--ana-silik);
 }
 
-label { font-size: 0.85rem; color: var(--muted); }
+label { display: block; font-size: var(--yazi-kucuk); font-weight: 700; color: var(--silik); }
 
-main { max-width: 1100px; margin: 0 auto; padding: 24px; }
+/* =========================================================================
+   6. YERLEŞİM, EKRANLAR, KARTLAR
+   Önce mobil: tek sütun, büyük dokunma alanları, yatay taşma yok.
+   ========================================================================= */
+main { max-width: 1100px; margin: 0 auto; padding: 20px 16px 40px; }
 
 .screen { display: none; }
-.screen.active { display: block; }
+.screen.active { display: block; animation: yaylan 460ms cubic-bezier(.34,1.56,.64,1) both; }
 
 .card {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 20px;
-  margin-bottom: 18px;
+  margin-bottom: var(--bosluk);
+  padding: 18px;
+  background: var(--kart);
+  border: var(--kenar) solid var(--ana-koyu);
+  border-radius: var(--r-buyuk);
+  box-shadow: 0 6px 0 var(--ana-koyu);
 }
+.card > h1:last-child,
+.card > h2:last-child,
+.card > h3:last-child { margin-bottom: 0; }
+/* Butonun 3B gölgesi bir sonraki satırın üstüne binmesin */
+.card > button { margin: 14px 0 10px; }
+.card > button:last-child { margin-bottom: 0; }
 
-#screen-join .card { max-width: 460px; margin: 40px auto; }
+#screen-join .card,
+#screen-auth .card { max-width: 480px; margin: 32px auto; }
 
+/* =========================================================================
+   7. SEKMELER
+   ========================================================================= */
 .tabs { display: flex; gap: 8px; margin: 16px 0; }
-.tab-btn { flex: 1; }
-.tab-btn.active { background: var(--accent-2); border-color: var(--accent-2); }
+.tab-btn { flex: 1; min-height: 44px; }
+.tab-btn.active { --b-yuz: var(--vurgu); --b-golge: var(--vurgu-koyu); --b-metin: var(--ana-koyu); }
 .tab-panel { display: none; }
-.tab-panel.active { display: block; }
+.tab-panel.active { display: block; animation: yaylan 360ms cubic-bezier(.34,1.56,.64,1) both; }
 
-.muted { color: var(--muted); font-size: 0.9rem; }
-.error { color: #ff6b6b; font-size: 0.9rem; }
+/* =========================================================================
+   8. OYUNCU LİSTESİ VE ETİKETLER
+   Durum asla sadece renkle anlatılmaz: ölü oyuncu hem soluk, hem kesik
+   çizgili kenarlıklı, hem avatarında çarpı işaretli, hem de etiketlidir.
+   ========================================================================= */
+.player-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }
 
-.player-list { list-style: none; padding: 0; margin: 0; }
 .player-list li {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 8px 10px;
-  border-radius: 8px;
-  margin-bottom: 6px;
-  background: var(--panel-2);
+  gap: 12px;
+  padding: 10px 12px;
+  background: var(--kart-ust);
+  border: var(--kenar) solid var(--cizgi-koyu);
+  border-radius: var(--r-orta);
+  box-shadow: 0 4px 0 var(--cizgi-koyu);
+  animation: yaylan 420ms cubic-bezier(.34,1.56,.64,1) both;
 }
-.player-list li.dead { opacity: 0.5; text-decoration: line-through; }
-.tag { font-size: 0.75rem; padding: 2px 8px; border-radius: 999px; background: var(--accent-2); margin-left: 6px; }
-.tag.host { background: #ffd166; color: #201400; }
-.tag.offline { background: #555; }
-.tag.voted { background: var(--good); color: #06210f; font-weight: 700; }
+.player-list li > span:first-of-type { font-weight: 700; font-size: var(--yazi-orta); }
+.player-list li.dead {
+  opacity: .55;
+  filter: grayscale(.7);
+  border-style: dashed;
+  box-shadow: none;
+  text-decoration: none;   /* üstü çizili yerine avatardaki çarpı işareti */
+}
+.player-list li.speaking {
+  border-color: var(--iyi);
+  box-shadow: 0 4px 0 var(--iyi-koyu);
+}
 
+/* Liste öğeleri sırayla gelsin */
+.player-list li:nth-child(1) { animation-delay: 40ms; }
+.player-list li:nth-child(2) { animation-delay: 100ms; }
+.player-list li:nth-child(3) { animation-delay: 160ms; }
+.player-list li:nth-child(4) { animation-delay: 220ms; }
+.player-list li:nth-child(5) { animation-delay: 280ms; }
+.player-list li:nth-child(6) { animation-delay: 340ms; }
+.player-list li:nth-child(7) { animation-delay: 400ms; }
+.player-list li:nth-child(8) { animation-delay: 460ms; }
+
+/* Avatar: rengi isimden türetilir (aynı isim → hep aynı renk), JS inline
+   style olarak verir. Baş harf içeride. */
+.avatar {
+  position: relative;
+  flex: 0 0 auto;
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  font-size: 18px;
+  font-weight: 800;
+  color: #fff;
+  background: var(--ana);
+  border: 3px solid rgba(255,255,255,.85);
+  box-shadow: 0 3px 0 rgba(60,35,85,.28);
+}
+.player-list li.dead .avatar::after {
+  content: "✕";
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--kotu-koyu);
+  background: rgba(255,255,255,.55);
+  border-radius: 50%;
+}
+
+/* Etiketler (hap şeklinde) */
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 6px;
+  padding: 3px 11px;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.5;
+  border-radius: 999px;
+  background: var(--ana-silik);
+  color: var(--ana-koyu);
+  border: 2px solid transparent;
+}
+.tag.host    { background: #FFF1D5; color: #8A5E10;          border-color: #F5D9A0; }
+.tag.offline { background: #EFEAE2; color: var(--silik);      border-color: #E0D8CC; }
+.tag.voted   { background: #E2F4E8; color: var(--iyi-koyu);   border-color: #BCE4C9; }
+
+/* =========================================================================
+   9. SOHBET
+   ========================================================================= */
 .chat-log {
   height: 220px;
   overflow-y: auto;
-  background: var(--panel-2);
-  border-radius: 8px;
-  padding: 10px;
-  margin-bottom: 10px;
-  font-size: 0.9rem;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
+  margin-bottom: 10px;
+  padding: 12px;
+  background: var(--kart-ust);
+  border: 2px solid var(--cizgi);
+  border-radius: var(--r-orta);
+  font-size: var(--yazi-govde);
 }
-/* Sabit bir yükseklik + overflow-y:auto (üstteki .chat-log kuralından
-   geliyor) ile sohbet kutusu HER ZAMAN kendi içinde kaydırılsın. Önceden
-   height:100%/flex:1 kullanılıyordu ama üst öğe (.chat-card-large) grid
-   içinde belirli bir yüksekliğe sahip olmadığından bu hiç işe yaramıyor,
-   kutu mesaj sayısı arttıkça sınırsız büyüyüp TÜM SAYFAYI aşağı itiyordu. */
+/* Sabit yükseklik + overflow-y:auto ile sohbet kutusu HER ZAMAN kendi
+   içinde kaydırılır; mesaj sayısı arttıkça sayfayı aşağı itmez. */
 .chat-log.chat-log-large { height: 60vh; max-height: 620px; min-height: 320px; flex: none; }
+
 .chat-log .msg {
-  padding: 6px 10px;
-  border-radius: 8px;
-  background: rgba(255,255,255,0.04);
-  border-left: 3px solid transparent;
+  padding: 7px 11px;
+  border-radius: var(--r-kucuk);
+  background: var(--kart);
+  border-left: 4px solid var(--cizgi-koyu);
   line-height: 1.45;
+  animation: yaylan 300ms cubic-bezier(.34,1.56,.64,1) both;
 }
-.chat-log .msg.msg-lobby { border-left-color: #7a72c9; }
-.chat-log .msg.msg-day { border-left-color: #4fae80; }
-.chat-log .msg.msg-vampire { border-left-color: #ff5c76; }
-.chat-log .msg.msg-dead { border-left-color: #8a8a8a; }
-.chat-log .msg .nick { font-weight: 700; color: #ffd166; margin-right: 2px; } /* varsayılan; her oyuncuya özel renk JS ile inline style olarak eklenir */
-.chat-log .ch { font-size: 0.7rem; padding: 1px 6px; border-radius: 999px; margin-right: 6px; }
-.ch-lobby { background: #4a4470; }
-.ch-day { background: #3d6b52; }
-.ch-vampire { background: var(--accent); }
-.ch-dead { background: #444; }
+.chat-log .msg.msg-lobby   { border-left-color: var(--ana); }
+.chat-log .msg.msg-day     { border-left-color: var(--iyi); }
+.chat-log .msg.msg-vampire { border-left-color: var(--kotu); }
+.chat-log .msg.msg-dead    { border-left-color: var(--silik); }
+/* varsayılan; her oyuncuya özel renk JS ile inline style olarak eklenir */
+.chat-log .msg .nick { font-weight: 800; color: var(--ana); margin-right: 2px; }
+
+.chat-log .ch {
+  display: inline-block;
+  margin-right: 6px;
+  padding: 1px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 999px;
+  color: #fff;
+}
+.ch-lobby   { background: var(--ana); }
+.ch-day     { background: var(--iyi-koyu); }
+.ch-vampire { background: var(--kotu); }
+.ch-dead    { background: var(--silik); }
 
 .chat-form { display: flex; gap: 8px; }
-.chat-form input { flex: 1; margin: 0; }
+.chat-form input { flex: 1; min-width: 0; margin: 0; }
 
-/* Sohbet solda, geniş; rol/faz/oyuncu kartları sağda dar bir sütunda alt
-   alta — konuşmaların birbirine karışmaması için sohbete daha fazla alan. */
+/* =========================================================================
+   10. OYUN EKRANI IZGARASI
+   Sohbet solda geniş; rol/faz/oyuncu kartları sağda dar sütunda.
+   ========================================================================= */
 .game-grid {
   display: grid;
   grid-template-columns: 1.4fr 1fr;
-  gap: 16px;
+  gap: var(--bosluk);
   align-items: start;
 }
-.game-grid .chat-card-large {
-  display: flex;
-  flex-direction: column;
-  min-height: 560px;
-}
-.game-side-col {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
+.game-grid > *, .game-side-col > * { min-width: 0; }
+.game-grid .chat-card-large { display: flex; flex-direction: column; min-height: 560px; }
+.game-side-col { display: flex; flex-direction: column; gap: var(--bosluk); }
+.game-side-col .card { margin-bottom: 0; }
+
 @media (max-width: 900px) {
   .game-grid { grid-template-columns: 1fr; }
   .game-grid .chat-card-large { min-height: 320px; }
   .chat-log.chat-log-large { height: 50vh; max-height: 420px; min-height: 260px; }
 }
 
-.role-name { font-size: 1.6rem; font-weight: 700; color: #ffd166; margin: 6px 0; }
-#teammatesBox { margin-top: 10px; padding: 8px; background: rgba(180,33,60,0.2); border-radius: 8px; }
-
-.phase-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
-.phase-label { font-size: 1.2rem; font-weight: 700; }
-.phase-timer { font-variant-numeric: tabular-nums; color: var(--muted); }
-/* Son 15 saniyede süre daralmasını vurgulamak için yanıp sönme efekti. */
-.phase-timer.timer-critical {
-  color: #ff6b6b;
+/* =========================================================================
+   11. ROL KARTI
+   ========================================================================= */
+.role-card { background: var(--ana-silik); }
+.role-name {
+  margin: 6px 0;
+  font-size: var(--yazi-buyuk);
   font-weight: 800;
-  animation: timer-blink 1s step-start infinite;
+  color: var(--ana);
 }
-@keyframes timer-blink {
-  0%, 49% { opacity: 1; }
-  50%, 100% { opacity: 0.25; }
+#teammatesBox {
+  margin-top: 10px;
+  padding: 10px 12px;
+  background: #FBE4E0;
+  border: 2px solid var(--kotu);
+  border-radius: var(--r-kucuk);
+  font-size: var(--yazi-kucuk);
 }
-.announcement { background: var(--panel-2); padding: 10px; border-radius: 8px; }
 
-.target-grid { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
-.target-grid button { min-width: 100px; }
-.target-grid button.selected { background: var(--good); border-color: var(--good); color: #06210f; }
+.reveal-role-box {
+  margin-top: 12px;
+  padding: 12px;
+  background: var(--kart-ust);
+  border: 2px dashed var(--ana);
+  border-radius: var(--r-orta);
+}
+.reveal-role-box button { margin-top: 6px; }
 
-.reveal-table { width: 100%; border-collapse: collapse; margin: 16px 0; }
-.reveal-table th, .reveal-table td { text-align: left; padding: 8px; border-bottom: 1px solid var(--border); }
+/* =========================================================================
+   12. FAZ BAŞLIĞI VE SÜRE
+   ========================================================================= */
+.phase-card { border-color: var(--vurgu-koyu); box-shadow: 0 6px 0 var(--vurgu-koyu); }
+.phase-card.is-day   { background: #FFF3DA; border-color: var(--vurgu-koyu); box-shadow: 0 6px 0 var(--vurgu-koyu); }
+.phase-card.is-night { background: var(--ana); border-color: var(--ana-koyu);  box-shadow: 0 6px 0 var(--ana-koyu); }
+.phase-card.is-night,
+.phase-card.is-night .phase-label,
+.phase-card.is-night .announcement,
+.phase-card.is-night .muted,
+.phase-card.is-night h3 { color: #fff; }
+/* Süre hapı koyu kartın üstünde de okunur kalsın (beyaz zemin + koyu yazı) */
+.phase-card.is-night .phase-timer { color: var(--ana-koyu); border-color: rgba(255,255,255,.65); }
+.phase-card.is-night .phase-timer.timer-critical { color: #fff; background: var(--kotu); border-color: var(--kotu-koyu); }
+.phase-card.is-night .announcement { background: rgba(255,255,255,.14); border-color: rgba(255,255,255,.4); }
+.phase-card.is-night button { --b-yuz: var(--kart-ust); --b-golge: var(--ana-koyu); --b-metin: var(--ana-koyu); }
+.phase-card.is-night button.danger { --b-yuz: var(--kotu); --b-golge: var(--kotu-koyu); --b-metin: #fff; }
+.phase-card.is-day,
+.phase-card.is-night { transition: background 1200ms ease, border-color 1200ms ease, box-shadow 1200ms ease; }
 
+.phase-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.phase-icon { font-size: 28px; line-height: 1; }
+.phase-label { flex: 1; font-size: var(--yazi-orta); font-weight: 800; }
+
+/* Süre göstergesi: hap şeklinde sayaç. Renk uyarı verir ama rakam her zaman
+   okunur — bilgi tek başına renkle taşınmaz. */
+.phase-timer {
+  display: inline-flex;
+  align-items: center;
+  min-width: 62px;
+  justify-content: center;
+  padding: 4px 12px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  color: var(--ana-koyu);
+  background: var(--kart-ust);
+  border: 2px solid var(--cizgi-koyu);
+  border-radius: 999px;
+}
+.phase-timer:empty { display: none; }
+.phase-timer.timer-critical {
+  color: #fff;
+  background: var(--kotu);
+  border-color: var(--kotu-koyu);
+  animation: nabiz 800ms ease-in-out infinite;
+}
+
+.announcement {
+  padding: 12px 14px;
+  background: var(--ana-silik);
+  border: 2px dashed var(--ana);
+  border-radius: var(--r-orta);
+  font-weight: 600;
+  text-align: center;
+}
+.announcement:empty { display: none; }
+
+/* =========================================================================
+   13. HEDEF SEÇME / OYLAMA
+   ========================================================================= */
+.target-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+  margin-top: 12px;
+}
+@media (min-width: 520px) { .target-grid { grid-template-columns: repeat(2, 1fr); } }
+.target-grid button { width: 100%; justify-content: flex-start; }
+.target-grid button.selected {
+  --b-yuz: var(--iyi); --b-golge: var(--iyi-koyu); --b-metin: #fff;
+}
+.target-grid button.selected::after { content: "✓"; margin-left: auto; font-size: 18px; }
+
+.confirm-btn { margin-top: 12px; width: 100%; }
+.confirm-btn[disabled] { opacity: 1; }
+
+/* =========================================================================
+   14. TABLOLAR
+   ========================================================================= */
+.reveal-table,
+.history-table { width: 100%; border-collapse: collapse; margin: 16px 0; }
+.reveal-table th, .reveal-table td,
+.history-table th, .history-table td {
+  text-align: left;
+  padding: 9px 8px;
+  border-bottom: 2px solid var(--cizgi);
+}
+.reveal-table th, .history-table th { font-weight: 800; color: var(--silik); font-size: var(--yazi-kucuk); }
+.history-table { font-size: var(--yazi-kucuk); }
+.history-win  { color: var(--iyi-koyu);  font-weight: 800; }
+.history-loss { color: var(--kotu-koyu); font-weight: 700; }
+
+/* =========================================================================
+   15. BİLDİRİM (TOAST)
+   ========================================================================= */
 .toast {
-  position: fixed; top: 16px; left: 50%; transform: translateX(-50%);
-  background: var(--accent); color: white; padding: 10px 18px; border-radius: 8px;
-  z-index: 999; box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+  position: fixed;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 999;
+  max-width: min(92vw, 420px);
+  padding: 12px 20px;
+  font-weight: 700;
+  color: #fff;
+  background: var(--ana-koyu);
+  border-radius: 999px;
+  box-shadow: 0 6px 0 rgba(0,0,0,.22);
+  animation: yaylan 320ms cubic-bezier(.34,1.56,.64,1) both;
 }
 
-/* ---------- Roller dağıtılırken 3-2-1 geri sayımı ---------- */
+/* =========================================================================
+   16. GERİ SAYIM PERDESİ (roller dağıtılırken 3-2-1)
+   ========================================================================= */
 .countdown-overlay {
   position: fixed;
   inset: 0;
@@ -275,36 +626,46 @@ main { max-width: 1100px; margin: 0 auto; padding: 24px; }
   align-items: center;
   justify-content: center;
   gap: 14px;
-  background: radial-gradient(circle at center, #241a38, #0c0812 75%);
+  background: var(--ana);
+  background-image: radial-gradient(circle at 50% 30%, rgba(255,255,255,.18) 0 35%, transparent 65%);
 }
 .countdown-number {
   font-size: 7rem;
   font-weight: 800;
-  color: #ffd166;
-  text-shadow: 0 0 30px rgba(255, 209, 102, 0.6);
+  color: var(--vurgu);
+  text-shadow: 0 6px 0 var(--ana-koyu);
 }
-.countdown-number.pulse { animation: countdown-pulse 0.8s ease-out; }
+.countdown-number.pulse { animation: countdown-pulse .8s ease-out; }
 @keyframes countdown-pulse {
-  0% { transform: scale(0.4); opacity: 0; }
-  30% { transform: scale(1.15); opacity: 1; }
-  100% { transform: scale(1); opacity: 1; }
+  0%   { transform: scale(.4);  opacity: 0; }
+  30%  { transform: scale(1.15); opacity: 1; }
+  100% { transform: scale(1);   opacity: 1; }
 }
-.countdown-caption { color: var(--muted); font-size: 1.1rem; letter-spacing: 1px; }
+.countdown-caption { color: rgba(255,255,255,.9); font-size: var(--yazi-orta); font-weight: 600; }
 
-/* ---------- Gece / gündüz ikonu (mor aile içinde kalan iki ton) ---------- */
-.phase-icon { font-size: 1.6rem; margin-right: 4px; vertical-align: middle; }
-.phase-card.is-night,
-.phase-card.is-day {
-  transition: background 3s ease;
+/* =========================================================================
+   17. FAZ GEÇİŞ PERDESİ (gündüz <-> gece)
+   Kısa bir tam ekran perde; renk değişimi perdenin altında olur.
+   ========================================================================= */
+.phase-curtain {
+  position: fixed;
+  inset: 0;
+  z-index: 970;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  opacity: 0;
+  background: var(--vurgu);
+  color: var(--ana-koyu);
 }
-.phase-card.is-night {
-  background: linear-gradient(160deg, #201a38, #14101c 70%);
-}
-.phase-card.is-day {
-  background: linear-gradient(160deg, #5a4890, #3a2e64 70%);
-}
+.phase-curtain.to-night { background: var(--ana); color: #fff; }
+.phase-curtain.play { animation: perde 1400ms ease forwards; }
+.phase-curtain .curtain-icon { display: block; font-size: 76px; line-height: 1; animation: zipla 900ms ease; }
+.phase-curtain .curtain-text { font-size: var(--yazi-buyuk); font-weight: 800; text-align: center; }
 
-/* ---------- Ölüm efekti ---------- */
+/* =========================================================================
+   18. ÖLÜM VE SON SÖZ EFEKTLERİ
+   ========================================================================= */
 .death-overlay {
   position: fixed;
   inset: 0;
@@ -318,28 +679,31 @@ main { max-width: 1100px; margin: 0 auto; padding: 24px; }
   pointer-events: none;
 }
 .death-overlay.play { animation: death-flash 2.2s ease forwards; }
-.death-overlay .death-icon {
-  font-size: 5rem;
-  filter: drop-shadow(0 0 24px rgba(255, 40, 70, 0.7));
-  opacity: 0;
-}
+.death-overlay .death-icon { font-size: 5rem; opacity: 0; }
 .death-overlay.play .death-icon { animation: death-icon-pop 2.2s ease forwards; }
-.death-caption { font-size: 1.5rem; font-weight: 800; color: #ffe3e3; text-shadow: 0 2px 10px rgba(0,0,0,0.6); }
+.death-caption {
+  font-size: var(--yazi-buyuk);
+  font-weight: 800;
+  color: #fff;
+  padding: 8px 20px;
+  background: var(--kotu-koyu);
+  border-radius: 999px;
+  box-shadow: 0 5px 0 rgba(0,0,0,.2);
+}
 @keyframes death-flash {
-  0% { background: rgba(120,0,20,0); }
-  12% { background: rgba(120,0,20,0.38); }
-  70% { background: rgba(120,0,20,0.28); }
-  100% { background: rgba(120,0,20,0); }
+  0%   { background: rgba(226, 97, 79, 0); }
+  12%  { background: rgba(226, 97, 79, .42); }
+  70%  { background: rgba(226, 97, 79, .30); }
+  100% { background: rgba(226, 97, 79, 0); }
 }
 @keyframes death-icon-pop {
-  0% { transform: scale(0.3) rotate(-12deg); opacity: 0; }
-  20% { transform: scale(1.25) rotate(6deg); opacity: 1; }
-  35% { transform: scale(1) rotate(0deg); opacity: 1; }
-  85% { opacity: 1; }
+  0%   { transform: scale(.3) rotate(-12deg); opacity: 0; }
+  20%  { transform: scale(1.25) rotate(6deg); opacity: 1; }
+  35%  { transform: scale(1) rotate(0deg);    opacity: 1; }
+  85%  { opacity: 1; }
   100% { opacity: 0; }
 }
 
-/* ---------- Ölen oyuncunun "son söz"ü — ekranın ortasında ---------- */
 .last-words-overlay {
   position: fixed;
   inset: 0;
@@ -347,148 +711,91 @@ main { max-width: 1100px; margin: 0 auto; padding: 24px; }
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 24px;
   background: transparent;
   pointer-events: none;
-  padding: 24px;
 }
 .last-words-box {
   max-width: 480px;
+  padding: 26px 30px;
   text-align: center;
-  background: rgba(20, 16, 28, 0.92);
-  border: 1px solid var(--accent);
-  border-radius: 16px;
-  padding: 28px 32px;
-  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.55);
+  background: var(--kart);
+  border: var(--kenar) solid var(--ana-koyu);
+  border-radius: var(--r-buyuk);
+  box-shadow: 0 8px 0 var(--ana-koyu);
   opacity: 0;
-  transform: scale(0.85);
+  transform: scale(.85);
 }
 .last-words-overlay.play .last-words-box { animation: last-words-pop 5s ease forwards; }
 .last-words-icon { font-size: 2.2rem; margin-bottom: 8px; }
-.last-words-nick { font-weight: 800; color: #ffd166; font-size: 1.1rem; margin-bottom: 6px; }
-.last-words-text { color: var(--text); font-size: 1.3rem; font-style: italic; line-height: 1.4; }
+.last-words-nick { font-weight: 800; color: var(--ana); font-size: var(--yazi-orta); margin-bottom: 6px; }
+.last-words-text { color: var(--ana-koyu); font-size: var(--yazi-buyuk); font-style: italic; line-height: 1.4; }
 @keyframes last-words-pop {
-  0% { opacity: 0; transform: scale(0.85); }
-  10% { opacity: 1; transform: scale(1); }
-  85% { opacity: 1; transform: scale(1); }
-  100% { opacity: 0; transform: scale(0.95); }
+  0%   { opacity: 0; transform: scale(.85); }
+  10%  { opacity: 1; transform: scale(1); }
+  85%  { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(.95); }
 }
 
-/* ---------- Ölen oyuncunun rolünü açıklama kutusu ---------- */
-.reveal-role-box {
-  margin-top: 12px;
-  padding: 10px;
-  border-radius: 8px;
-  background: rgba(180,33,60,0.15);
-  border: 1px solid var(--border);
-}
-.reveal-role-box button { margin-top: 6px; }
-
-/* ---------- Sesli sohbet paneli (sağ alt köşede sabit) ---------- */
+/* =========================================================================
+   19. SESLİ SOHBET PANELİ (sağ alt köşede sabit)
+   ========================================================================= */
 .voice-panel {
   position: fixed;
   right: 16px;
   bottom: 16px;
   z-index: 900;
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 12px 14px;
-  width: 220px;
-  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.4);
+  width: 230px;
+  padding: 14px;
+  background: var(--kart);
+  border: var(--kenar) solid var(--ana-koyu);
+  border-radius: var(--r-buyuk);
+  box-shadow: 0 6px 0 var(--ana-koyu);
 }
-.voice-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 0.9rem; }
-#voiceStatusIcon { font-size: 1.1rem; }
-.voice-panel button { width: 100%; margin-top: 6px; }
+.voice-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-size: var(--yazi-kucuk); font-weight: 700; }
+#voiceStatusIcon { font-size: 18px; }
+.voice-panel button { width: 100%; margin-top: 8px; min-height: 40px; font-size: var(--yazi-kucuk); }
 #voiceChannelLabel { margin-bottom: 4px; }
-.voice-ptt-btn {
-  background: var(--panel-2);
-  font-weight: 700;
-  user-select: none;
-  touch-action: manipulation;
-}
-.voice-ptt-btn.talking {
-  background: var(--good);
-  color: #06210f;
-}
-.voice-ptt-btn:disabled { opacity: 0.45; cursor: not-allowed; }
-@media (max-width: 640px) {
-  .voice-panel { right: 10px; bottom: 10px; width: 180px; padding: 10px; }
-}
 
-/* ---------- Hedef seç + onayla akışı ---------- */
-.confirm-btn { margin-top: 10px; }
-.confirm-btn[disabled] { opacity: 0.4; }
+.voice-ptt-btn { --b-yuz: var(--vurgu); --b-golge: var(--vurgu-koyu); --b-metin: var(--ana-koyu); user-select: none; touch-action: manipulation; }
+.voice-ptt-btn.talking { --b-yuz: var(--iyi); --b-golge: var(--iyi-koyu); --b-metin: #fff; }
 
-/* ---------- Küçük ikon butonu (ses aç/kapa, profil kapat...) ---------- */
-.icon-btn {
-  padding: 6px 10px;
-  font-size: 1.1rem;
-  line-height: 1;
-  border-radius: 8px;
-}
-
-/* ---------- Konuşma göstergesi (atmosfer/his iyileştirmesi) ---------- */
-/* Sesli sohbette şu an konuşan bir oyuncunun, hem "Oyuncular" listesindeki
-   satırı hem de sesli sohbet panelindeki adı yeşil bir parıltıyla vurgulanır.
-   Bilgi sızıntısı olmasın diye bu olay sunucuda SADECE aynı kanaldaki
-   oyunculara iletiliyor (bkz. gameManager.js: setTalkingState). */
-.player-list li.speaking {
-  box-shadow: 0 0 0 2px var(--good), 0 0 14px rgba(47, 191, 113, 0.55);
-}
 .voice-peer-list {
   list-style: none;
+  margin: 8px 0;
   padding: 0;
-  margin: 6px 0;
   display: flex;
   flex-direction: column;
   gap: 4px;
-  font-size: 0.82rem;
   max-height: 140px;
   overflow-y: auto;
+  font-size: 12px;
 }
 .voice-peer-list li {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 8px;
-  border-radius: 6px;
-  background: var(--panel-2);
-  transition: background 0.2s ease;
+  padding: 4px 10px;
+  background: var(--kart-ust);
+  border: 2px solid var(--cizgi);
+  border-radius: 999px;
+  transition: background .2s ease;
 }
-.voice-peer-list li::before {
-  content: '●';
-  font-size: 0.55rem;
-  color: var(--muted);
-}
-.voice-peer-list li.speaking {
-  background: rgba(47, 191, 113, 0.25);
-}
-.voice-peer-list li.speaking::before {
-  color: var(--good);
+.voice-peer-list li::before { content: '●'; font-size: 9px; color: var(--silik); }
+.voice-peer-list li.speaking { background: #E2F4E8; border-color: var(--iyi); }
+.voice-peer-list li.speaking::before { color: var(--iyi-koyu); }
+
+@media (max-width: 640px) {
+  .voice-panel { right: 10px; bottom: 10px; width: 186px; padding: 10px; }
 }
 
-/* ---------- Sohbette emoji tepkileri (atmosfer/his iyileştirmesi) ---------- */
+/* =========================================================================
+   20. EMOJİ TEPKİLERİ
+   ========================================================================= */
 .chat-card { position: relative; }
-.reaction-bar {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-  margin-bottom: 10px;
-}
-.reaction-btn {
-  padding: 4px 9px;
-  font-size: 1.15rem;
-  line-height: 1;
-  border-radius: 999px;
-}
-.reaction-btn:hover { filter: brightness(1.3); }
-.reaction-zone {
-  position: absolute;
-  right: 18px;
-  bottom: 92px;
-  pointer-events: none;
-  z-index: 5;
-}
+.reaction-bar { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+.reaction-btn { min-height: 38px; padding: 4px 12px; font-size: 18px; line-height: 1; border-radius: 999px; --derinlik: 4px; }
+.reaction-zone { position: absolute; right: 18px; bottom: 92px; pointer-events: none; z-index: 5; }
 .reaction-pop {
   position: absolute;
   right: 0;
@@ -496,68 +803,132 @@ main { max-width: 1100px; margin: 0 auto; padding: 24px; }
   font-size: 1.7rem;
   white-space: nowrap;
   animation: reaction-float 1.7s ease-out forwards;
-  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.5));
 }
 @keyframes reaction-float {
-  0% { opacity: 0; transform: translateY(0) scale(0.6); }
-  15% { opacity: 1; transform: translateY(-8px) scale(1.2); }
+  0%   { opacity: 0; transform: translateY(0) scale(.6); }
+  15%  { opacity: 1; transform: translateY(-8px) scale(1.2); }
   100% { opacity: 0; transform: translateY(-80px) scale(1); }
 }
 
-/* ---------- Profil / istatistik penceresi ---------- */
+/* =========================================================================
+   21. PROFİL PENCERESİ
+   ========================================================================= */
 .profile-overlay {
   position: fixed;
   inset: 0;
   z-index: 980;
-  background: rgba(10, 8, 16, 0.78);
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 20px;
+  background: rgba(60, 35, 85, .42);
+  backdrop-filter: blur(3px);
 }
 .profile-box {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  padding: 24px;
-  max-width: 640px;
   width: 100%;
+  max-width: 640px;
   max-height: 85vh;
   overflow-y: auto;
-  box-shadow: 0 12px 50px rgba(0, 0, 0, 0.5);
+  padding: 24px;
+  background: var(--kart);
+  border: var(--kenar) solid var(--ana-koyu);
+  border-radius: var(--r-buyuk);
+  box-shadow: 0 8px 0 var(--ana-koyu);
+  animation: yaylan 380ms cubic-bezier(.34,1.56,.64,1) both;
 }
-.profile-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 6px;
-}
+.profile-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
 .profile-header h2 { margin: 0; }
+
 .profile-stats-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
   gap: 10px;
   margin: 18px 0;
 }
 .profile-stat {
-  background: var(--panel-2);
-  border-radius: 10px;
-  padding: 12px;
+  padding: 14px 12px;
   text-align: center;
+  background: var(--kart-ust);
+  border: 2px solid var(--cizgi-koyu);
+  border-radius: var(--r-orta);
+  box-shadow: 0 4px 0 var(--cizgi-koyu);
 }
-.profile-stat .num { font-size: 1.6rem; font-weight: 800; color: #ffd166; }
-.profile-stat .label { font-size: 0.78rem; color: var(--muted); margin-top: 2px; }
+.profile-stat .num { font-size: var(--yazi-buyuk); font-weight: 800; color: var(--ana); line-height: 1.1; }
+.profile-stat .label { font-size: 12px; font-weight: 600; color: var(--silik); margin-top: 4px; }
+
 .profile-roles { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 20px; }
 .profile-role-chip {
-  background: var(--panel-2);
+  padding: 5px 14px;
+  font-size: var(--yazi-kucuk);
+  font-weight: 700;
+  background: var(--ana-silik);
+  color: var(--ana-koyu);
+  border: 2px solid var(--ana);
   border-radius: 999px;
-  padding: 5px 12px;
-  font-size: 0.85rem;
 }
-.history-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
-.history-table th, .history-table td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--border); }
-.history-win { color: var(--good); font-weight: 700; }
-.history-loss { color: #ff8a8a; }
-@media (max-width: 640px) {
-  .profile-box { padding: 16px; }
+
+@media (max-width: 640px) { .profile-box { padding: 16px; } }
+
+/* =========================================================================
+   22. ANİMASYONLAR
+   ========================================================================= */
+@keyframes yaylan {
+  0%   { opacity: 0; transform: translateY(18px) scale(.94); }
+  60%  { opacity: 1; transform: translateY(-4px) scale(1.02); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes salla {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-9px) rotate(-1.5deg); }
+  40% { transform: translateX(9px) rotate(1.5deg); }
+  60% { transform: translateX(-6px); }
+  80% { transform: translateX(6px); }
+}
+@keyframes zipla {
+  0%   { transform: translateY(0) scale(1); }
+  35%  { transform: translateY(-14px) scale(1.09); }
+  70%  { transform: translateY(0) scale(.98); }
+  100% { transform: translateY(0) scale(1); }
+}
+@keyframes nabiz {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.06); }
+}
+@keyframes perde {
+  0%   { opacity: 0; }
+  15%  { opacity: 1; }
+  78%  { opacity: 1; }
+  100% { opacity: 0; }
+}
+@keyframes konfeti-dus {
+  0%   { transform: translateY(0) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(105vh) rotate(760deg); opacity: .9; }
+}
+
+.shake { animation: salla 460ms ease; }
+.pop   { animation: zipla 520ms ease; }
+
+/* Kutlama konfetisi (JS oluşturur) */
+.confetti-piece {
+  position: fixed;
+  top: -14px;
+  width: 11px;
+  height: 16px;
+  z-index: 990;
+  border-radius: 3px;
+  pointer-events: none;
+  animation: konfeti-dus linear forwards;
+}
+
+/* =========================================================================
+   23. HAREKETİ AZALT — erişilebilirlik
+   İşletim sisteminde "hareketi azalt" açıksa tüm animasyonlar kapanır.
+   ========================================================================= */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .001ms !important;
+    scroll-behavior: auto !important;
+  }
 }

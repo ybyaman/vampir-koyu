@@ -421,6 +421,34 @@
     }
   });
 
+  // ---------- Kutlama konfetisi (oyun sonu) ----------
+  function celebrate() {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const renkler = ['#FFC861', '#5C3A7E', '#57B87C', '#E2614F', '#D99B2E'];
+    for (let i = 0; i < 60; i++) {
+      const parca = document.createElement('div');
+      parca.className = 'confetti-piece';
+      parca.style.left = Math.random() * 100 + 'vw';
+      parca.style.background = renkler[i % renkler.length];
+      parca.style.animationDuration = (1.7 + Math.random() * 1.4) + 's';
+      parca.style.animationDelay = (Math.random() * 0.45) + 's';
+      document.body.appendChild(parca);
+      setTimeout(() => parca.remove(), 3600);
+    }
+  }
+
+  // ---------- Avatar (isimden turetilen sabit renk + bas harf) ----------
+  // Ayni isim her zaman ayni rengi alir; oyuncular listede renkten de taninir.
+  const AVATAR_COLORS = ['#5C3A7E', '#57B87C', '#E2614F', '#D99B2E', '#3F7FB5', '#B65A9B', '#4FA5A0', '#C97B3A'];
+  function avatarHtml(nickname) {
+    const ad = String(nickname || '');
+    let t = 0;
+    for (let i = 0; i < ad.length; i++) t = (t * 31 + ad.charCodeAt(i)) % 9973;
+    const renk = AVATAR_COLORS[t % AVATAR_COLORS.length];
+    const harf = escapeHtml((ad.trim()[0] || '?').toLocaleUpperCase('tr'));
+    return `<span class="avatar" style="background:${renk}" aria-hidden="true">${harf}</span>`;
+  }
+
   // ---------- Lobi ----------
   function renderLobby() {
     const list = $('lobbyPlayerList');
@@ -428,7 +456,7 @@
     state.players.forEach((p) => {
       const li = document.createElement('li');
       li.dataset.nickname = p.nickname;
-      li.innerHTML = `<span>${escapeHtml(p.nickname)}</span>`;
+      li.innerHTML = `${avatarHtml(p.nickname)}<span>${escapeHtml(p.nickname)}</span>`;
       if (p.isHost) li.innerHTML += '<span class="tag host">Host</span>';
       if (!p.connected) li.innerHTML += '<span class="tag offline">Bağlantı yok</span>';
       list.appendChild(li);
@@ -494,7 +522,7 @@
       const li = document.createElement('li');
       li.dataset.nickname = p.nickname;
       if (!p.alive) li.classList.add('dead');
-      li.innerHTML = `<span>${escapeHtml(p.nickname)}</span>`;
+      li.innerHTML = `${avatarHtml(p.nickname)}<span>${escapeHtml(p.nickname)}</span>`;
       if (p.isHost) li.innerHTML += '<span class="tag host">Host</span>';
       if (p.role) li.innerHTML += `<span class="tag">${roleName(p.role)}</span>`;
       if (state.phase === 'day_vote' && p.alive && state.votedNicknames.has(p.nickname)) {
@@ -806,7 +834,7 @@
     const card = document.querySelector('.phase-card');
     const isNight = state.phase === 'night';
     const isDay = state.phase === 'day_discussion' || state.phase === 'day_vote';
-    document.body.classList.toggle('theme-day', isDay);
+    document.body.classList.toggle('theme-night', isNight);
     if (isNight) {
       $('phaseIcon').textContent = '🌙';
       card.classList.add('is-night');
@@ -818,10 +846,32 @@
     } else {
       card.classList.remove('is-night', 'is-day');
     }
+    playPhaseCurtain(isNight ? 'night' : (isDay ? 'day' : null));
+  }
+
+  // Faz degisiminde kisa bir tam ekran perde. Renk degisimi perdenin
+  // altinda olur. Oyuna ilk girisde / yeniden baglanmada perde gosterilmez
+  // (orada zaten 3-2-1 geri sayim perdesi var).
+  let curtainPhase = null;
+  function playPhaseCurtain(kind) {
+    if (kind === null) { curtainPhase = null; return; }
+    const first = curtainPhase === null;
+    if (curtainPhase === kind) return;
+    curtainPhase = kind;
+    if (first) return;
+    const el = $('phaseCurtain');
+    if (!el) return;
+    el.classList.toggle('to-night', kind === 'night');
+    el.querySelector('.curtain-icon').textContent = kind === 'night' ? '\u{1F319}' : '\u2600\uFE0F';
+    el.querySelector('.curtain-text').textContent = kind === 'night' ? 'Gece oldu' : 'Gunduz oldu';
+    el.classList.remove('play');
+    void el.offsetWidth; // animasyonu yeniden baslatmak icin reflow tetikle
+    el.classList.add('play');
   }
 
   function resetPhaseTheme() {
-    document.body.classList.remove('theme-day');
+    document.body.classList.remove('theme-night');
+    curtainPhase = null;
   }
 
   // ---------- Ölüm efekti ----------
@@ -1214,6 +1264,7 @@
     $('playAgainBtn').hidden = !state.isHost;
     $('waitHostHint').hidden = state.isHost;
     showScreen('screen-gameover');
+    celebrate();
   });
 
   $('playAgainBtn').addEventListener('click', () => {

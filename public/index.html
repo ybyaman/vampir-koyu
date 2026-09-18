@@ -4,10 +4,21 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Vampir Köyü</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/css/style.css" />
 </head>
 <body>
   <div id="toast" class="toast" hidden></div>
+
+  <!-- Gunduz <-> gece faz gecis perdesi -->
+  <div id="phaseCurtain" class="phase-curtain" aria-hidden="true">
+    <div>
+      <span class="curtain-icon">🌙</span>
+      <div class="curtain-text">Gece oldu</div>
+    </div>
+  </div>
 
   <div id="countdownOverlay" class="countdown-overlay" hidden>
     <div id="countdownNumber" class="countdown-number">3</div>
